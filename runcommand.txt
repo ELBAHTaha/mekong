@@ -1,0 +1,4 @@
+cd d:\profesDocs\Mekong\Mekong\flutter_app
+D:\profesDocs\Mekong\tools\flutter\bin\flutter.bat run -d emulator-5554
++++
+D:\profesDocs\Mekong\tools\flutter\bin\flutter.bat pub get

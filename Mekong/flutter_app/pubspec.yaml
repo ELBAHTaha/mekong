@@ -1,0 +1,33 @@
+name: mekong_flutter
+description: Flutter client for Mekong Laravel backend
+publish_to: "none"
+version: 0.1.0+1
+environment:
+  sdk: ">=2.17.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^0.13.6
+  shared_preferences: ^2.0.15
+  google_maps_flutter: ^2.4.3
+  url_launcher: ^6.2.6
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  dio: ^5.9.2
+  flutter_launcher_icons: ^0.11.0
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+
+# Configuration for flutter_launcher_icons to generate app launcher icons
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.jpg"

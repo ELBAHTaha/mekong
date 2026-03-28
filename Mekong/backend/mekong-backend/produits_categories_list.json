@@ -1,0 +1,109 @@
+{
+    "produits": [
+        {
+            "id": 1,
+            "nom": "Soupe Royal",
+            "description": "Poulet, crevettes, vermicelle, champignons de Paris et noirs",
+            "prix": "35.00",
+            "photo": "https://images.ricardocuisine.com/services/recipes/6480495153286ecc3c35e.jpg",
+            "categorie_id": 1,
+            "actif": 1,
+            "created_at": "2026-02-07 11:27:41",
+            "Disponible": null
+        },
+        {
+            "id": 2,
+            "nom": "Soupe aux Crabes",
+            "description": "Crabes, coriandre, œuf (+ maïs ou asperge)",
+            "prix": "35.00",
+            "photo": "https://cache.marieclaire.fr/data/photo/w999_c17/cuisine/43/crabe.jpg",
+            "categorie_id": 1,
+            "actif": 1,
+            "created_at": "2026-02-07 11:31:15",
+            "Disponible": null
+        },
+        {
+            "id": 3,
+            "nom": "Soupe avec Nouilles de Chine (Pho-Bo)",
+            "description": "Bœuf, nouille, oignon, coriandre",
+            "prix": "35.00",
+            "photo": "https://i.ytimg.com/vi/n5GpAW0bNzU/maxresdefault.jpg",
+            "categorie_id": 1,
+            "actif": 1,
+            "created_at": "2026-02-07 11:31:15",
+            "Disponible": null
+        },
+        {
+            "id": 4,
+            "nom": "Soupe Thaï aux Fruits de Mer",
+            "description": "Poisson, calamar, crevettes, champignons",
+            "prix": "40.00",
+            "photo": "https://www.femmeactuelle.fr/imgre/fit/~1~fac~2018~07~30~ed74787a-ceee-4b37-bb05-4c7a406d6f85.jpeg/1200x900/focusPoint/50%2C50/soupe-tom-yum-aux-fruits-de-mer.jpg",
+            "categorie_id": 1,
+            "actif": 1,
+            "created_at": "2026-02-07 11:33:28",
+            "Disponible": null
+        },
+        {
+            "id": 5,
+            "nom": "Soupe Thaï Spéciale Fruits de MeR",
+            "description": "Avec gingembre frais, céleri, curry",
+            "prix": "55.00",
+            "photo": "https://www.unileverfoodsolutions.ch/dam/global-ufs/mcos/dach/calcmenu-recipes/ch-recipes/2017/thai-gerichte/scharfe-thai-suppe-mit-meeresfr%C3%BCchten/main-header.jpg",
+            "categorie_id": 1,
+            "actif": 1,
+            "created_at": "2026-02-07 11:33:28",
+            "Disponible": null
+        }
+    ],
+    "categories_produits": [
+        {
+            "id": 1,
+            "nom": "Soupes",
+            "photo": "https://images.radio-canada.ca/v1/alimentation/recette/1x1/soupe-legumes.jpg",
+            "created_at": "2026-02-07 11:18:45"
+        },
+        {
+            "id": 2,
+            "nom": "Salades",
+            "photo": "https://images.ctfassets.net/1p5r6txvlxu4/6juJuzJeYtz7dqM8iUwnAi/fc2e2a06f24f233dd01248773c240dfe/AdobeStock_228571639-2.jpeg?w=768&h=541&fm=webp&q=100&fit=fill&f=center",
+            "created_at": "2026-02-07 11:19:47"
+        },
+        {
+            "id": 3,
+            "nom": "À Déguster (Entrées)",
+            "photo": "https://img.cuisineaz.com/660x495/2016/05/17/i55079-mignardises-salees-a-deguster-entre-copines.jpg",
+            "created_at": "2026-02-07 11:19:47"
+        },
+        {
+            "id": 4,
+            "nom": "Riz & Légumes",
+            "photo": "https://images.prismic.io/nahrin/3cbf8608-8b29-4bc8-9961-e53202dcf924_einfache-reispfanne-mit-gemuese-rezept.jpg?auto=compress,format",
+            "created_at": "2026-02-07 11:19:47"
+        },
+        {
+            "id": 5,
+            "nom": "Fruits de Mer",
+            "photo": "https://blog.pourdebon.com/wp-content/uploads/2021/04/comment-faire-cuire-des-fruits-de-mer.jpg",
+            "created_at": "2026-02-07 11:19:47"
+        },
+        {
+            "id": 6,
+            "nom": "Bœuf",
+            "photo": "https://img.static-rmg.be/a/view/q75/w620/h336/2155704/3-bons-plans-pour-une-viande-tendre-et-juteuse-2-1024x707.jpg",
+            "created_at": "2026-02-07 11:19:47"
+        },
+        {
+            "id": 7,
+            "nom": "Poulet",
+            "photo": "https://blog.boeufleclair.com/boeufstory-content/uploads/2016/01/Fotolia_93091049_M.jpg",
+            "created_at": "2026-02-07 11:19:47"
+        },
+        {
+            "id": 8,
+            "nom": "Brochettes",
+            "photo": "https://www.socopa.fr/wp-content/uploads/2022/04/reussir-ses-brochettes-au-barbecue.jpg",
+            "created_at": "2026-02-07 11:19:47"
+        }
+    ]
+}
