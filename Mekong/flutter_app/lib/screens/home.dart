@@ -992,7 +992,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Expanded(
                 child: Text(
-                  'Tables (temps réel)',
+                  'Tables',
                   style: TextStyle(
                     color: Colors.black87,
                     fontSize: 18,

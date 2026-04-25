@@ -1666,6 +1666,25 @@ class CommandeProduit {
   });
 
   factory CommandeProduit.fromJson(Map<String, dynamic> json) {
+    double toDouble(dynamic v) {
+      if (v == null) return 0.0;
+      if (v is num) return v.toDouble();
+      final s = v.toString().trim();
+      if (s.isEmpty) return 0.0;
+      // Support "12,50" coming from some locales.
+      final normalized = s.replaceAll(',', '.');
+      return double.tryParse(normalized) ?? 0.0;
+    }
+
+    int toInt(dynamic v, {int fallback = 0}) {
+      if (v == null) return fallback;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      final s = v.toString().trim();
+      if (s.isEmpty) return fallback;
+      return int.tryParse(s) ?? fallback;
+    }
+
     String nom = '';
     if (json['nom'] != null) {
       nom = json['nom'].toString();
@@ -1677,32 +1696,38 @@ class CommandeProduit {
       else if (p['nom'] != null) nom = p['nom'].toString();
     }
 
+    final quantite = toInt(json['quantite'] ?? json['quantity'], fallback: 1);
+
+    // Accept multiple backend/front keys.
     double prixUnitaire = 0.0;
-    if (json['prix_unitaire'] != null) {
-      if (json['prix_unitaire'] is num) prixUnitaire = (json['prix_unitaire'] as num).toDouble();
-      else prixUnitaire = double.tryParse('${json['prix_unitaire']}') ?? 0.0;
-    } else if (json['price'] != null) {
-      if (json['price'] is num) prixUnitaire = (json['price'] as num).toDouble();
-      else prixUnitaire = double.tryParse('${json['price']}') ?? 0.0;
+    if (json.containsKey('prix_unitaire')) {
+      prixUnitaire = toDouble(json['prix_unitaire']);
+    } else if (json.containsKey('price')) {
+      prixUnitaire = toDouble(json['price']);
+    } else if (json.containsKey('prix')) {
+      prixUnitaire = toDouble(json['prix']);
     } else if (json['produit'] != null && json['produit'] is Map) {
       final p = json['produit'] as Map<String, dynamic>;
-      if (p['price'] != null) prixUnitaire = (p['price'] is num) ? (p['price'] as num).toDouble() : double.tryParse('${p['price']}') ?? 0.0;
+      prixUnitaire = toDouble(p['prix_unitaire'] ?? p['price'] ?? p['prix']);
     }
 
     double totalVal = 0.0;
-    if (json['total'] != null) {
-      if (json['total'] is num) totalVal = (json['total'] as num).toDouble();
-      else totalVal = double.tryParse('${json['total']}') ?? prixUnitaire;
-    } else if (json['price'] != null && (json['quantity'] != null || json['quantite'] != null)) {
-      final q = (json['quantity'] ?? json['quantite']);
-      final qty = (q is int) ? q : (int.tryParse('$q') ?? 1);
-      totalVal = prixUnitaire * qty;
+    if (json.containsKey('total')) {
+      totalVal = toDouble(json['total']);
+    } else if (json.containsKey('total_ligne')) {
+      totalVal = toDouble(json['total_ligne']);
+    } else if (json.containsKey('line_total')) {
+      totalVal = toDouble(json['line_total']);
+    }
+    if (totalVal == 0.0 && prixUnitaire != 0.0 && quantite > 0) {
+      // Compute when backend doesn't provide a total per line.
+      totalVal = prixUnitaire * quantite;
     }
 
     return CommandeProduit(
-      id: json['id'] as int,
+      id: toInt(json['id'], fallback: 0),
       nom: nom,
-      quantite: json['quantite'] as int? ?? json['quantity'] as int? ?? 1,
+      quantite: quantite,
       prix_unitaire: prixUnitaire,
       total: totalVal,
     );

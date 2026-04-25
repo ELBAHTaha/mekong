@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 class ApiController extends Controller
 {
@@ -77,10 +78,17 @@ class ApiController extends Controller
             ->whereIn('statut', ['NOUVELLE','PREPARATION','PRETE','LIVRAISON'])
             ->count();
 
-        // Livraisons actives (separate table)
-        $livraisonsActives = (int) DB::table('livraisons')
-            ->whereIn('statut', ['EN_ROUTE'])
-            ->count();
+        // Livraisons actives (separate table). Some deployments don't have this table.
+        $livraisonsActives = 0;
+        try {
+            if (Schema::hasTable('livraisons')) {
+                $livraisonsActives = (int) DB::table('livraisons')
+                    ->whereIn('statut', ['EN_ROUTE'])
+                    ->count();
+            }
+        } catch (\Throwable $e) {
+            $livraisonsActives = 0;
+        }
 
         // Graph des ventes: derniers 7 jours
         $graph = [];

@@ -106,17 +106,53 @@ class DashboardData {
     required this.ventesParJourSemaine,
     this.ventesParJourMois = const [],
   });
-  factory DashboardData.fromJson(Map<String, dynamic> j) => DashboardData(
-    ventesDuJour: (j['ventes_du_jour'] as num).toDouble(),
-    commandesMontant: (j['commandes_montant'] as num).toDouble(),
-    depensesDuJour: (j['depenses_du_jour'] as num).toDouble(),
-    commandesEnCours: j['commandes_en_cours'] as int,
-    livraisonsActives: j['livraisons_actives'] as int,
-    livraisonCountDuJour: (j['livraison_count_du_jour'] as int?) ?? 0,
-    totalCommandesDuJour: (j['total_commandes_du_jour'] as int?) ?? 0,
-    graphVentes: ((j['graph_ventes'] as List?) ?? []).map((e) => SalesPoint.fromJson(e as Map<String, dynamic>)).toList(),
-    ventesParJourSemaine: ((j['ventes_par_jour_semaine'] as List?) ?? []).map((e) => WeekDaySale.fromJson(e as Map<String, dynamic>)).toList(),
-    ventesParJourMois: ((j['ventes_par_jour_mois'] as List?) ?? []).map((e) => MonthDaySale.fromJson(e as Map<String, dynamic>)).toList(),
-    commandesRecent: ((j['commandes_recent'] as List?) ?? []).map((e) => RecentOrder.fromJson(e as Map<String, dynamic>)).toList(),
-  );
+  factory DashboardData.fromJson(Map<String, dynamic> j) {
+    List<dynamic> _asList(dynamic v) {
+      if (v == null) return const [];
+      if (v is List) return v;
+      if (v is Map && v['data'] is List) return v['data'] as List;
+      return const [];
+    }
+
+    num _asNum(dynamic v) {
+      if (v is num) return v;
+      if (v is String) return num.tryParse(v.replaceAll(',', '.')) ?? 0;
+      return 0;
+    }
+
+    int _asInt(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
+
+    final recentRaw = j['commandes_recent'] ??
+        j['commandes_recents'] ??
+        j['commandes_recentes'] ??
+        j['recent_commandes'] ??
+        j['recent_orders'];
+
+    return DashboardData(
+      ventesDuJour: _asNum(j['ventes_du_jour']).toDouble(),
+      commandesMontant: _asNum(j['commandes_montant']).toDouble(),
+      depensesDuJour: _asNum(j['depenses_du_jour']).toDouble(),
+      commandesEnCours: _asInt(j['commandes_en_cours']),
+      livraisonsActives: _asInt(j['livraisons_actives']),
+      livraisonCountDuJour: _asInt(j['livraison_count_du_jour']),
+      totalCommandesDuJour: _asInt(j['total_commandes_du_jour']),
+      graphVentes: _asList(j['graph_ventes'])
+          .map((e) => SalesPoint.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      ventesParJourSemaine: _asList(j['ventes_par_jour_semaine'])
+          .map((e) => WeekDaySale.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      ventesParJourMois: _asList(j['ventes_par_jour_mois'])
+          .map((e) => MonthDaySale.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      commandesRecent: _asList(recentRaw)
+          .map((e) => RecentOrder.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
 }

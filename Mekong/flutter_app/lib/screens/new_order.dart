@@ -429,7 +429,14 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
           style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w700),
         ),
         leading: IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: () {
+            final nav = Navigator.of(context);
+            if (nav.canPop()) {
+              nav.pop();
+            } else {
+              nav.pushReplacementNamed('/home');
+            }
+          },
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
               color: _textSecondary),
         ),
@@ -593,7 +600,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
         ? 'Aucun type sélectionné'
         : _selectedType == OrderKind.livraison
             ? 'Livraison'
-            : 'Sur place / À emporter';
+            : 'À emporter';
 
     return Container(
       width: double.infinity,
@@ -667,9 +674,9 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
             final stacked = constraints.maxWidth < 760;
             final first = Expanded(
               child: _buildTypeCard(
-                title: 'Sur place / À emporter',
-                subtitle: 'Parcours standard pour une commande sur caisse',
-                icon: Icons.storefront_rounded,
+                title: 'À emporter',
+                subtitle: 'Commande à emporter (sur place)',
+                icon: Icons.shopping_bag_rounded,
                 selected: _selectedType == OrderKind.surPlace,
                 onTap: () => _selectType(OrderKind.surPlace),
               ),
