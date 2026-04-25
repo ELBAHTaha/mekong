@@ -52,15 +52,17 @@ class OrderProduct {
 class CartItem {
   final OrderProduct product;
   final int quantity;
+  final String? note;
 
-  const CartItem({required this.product, required this.quantity});
+  const CartItem({required this.product, required this.quantity, this.note});
 
   double get total => product.price * quantity;
 
-  CartItem copyWith({OrderProduct? product, int? quantity}) {
+  CartItem copyWith({OrderProduct? product, int? quantity, String? note}) {
     return CartItem(
       product: product ?? this.product,
       quantity: quantity ?? this.quantity,
+      note: note ?? this.note,
     );
   }
 }
@@ -99,6 +101,58 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
   final List<OrderCategory> _categories = [];
   final List<OrderProduct> _products = [];
   final Map<int, CartItem> _cart = {};
+
+  Future<String?> _askItemNote({required String title, String? initial}) async {
+    final ctrl = TextEditingController(text: initial ?? '');
+    final res = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Ex: sans salade, sauce à part…',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ''),
+            child: const Text('Sans note'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    return res;
+  }
+
+  Future<void> _addProductWithNote(OrderProduct product) async {
+    final note = await _askItemNote(title: 'Note pour "${product.name}"');
+    if (!mounted) return;
+    if (note == null) return;
+
+    setState(() {
+      final existing = _cart[product.id];
+      if (existing == null) {
+        _cart[product.id] = CartItem(product: product, quantity: 1, note: note.isEmpty ? null : note);
+      } else {
+        // Keep existing note unless it was empty and user just provided one.
+        final nextNote = (existing.note == null || existing.note!.trim().isEmpty)
+            ? (note.isEmpty ? null : note)
+            : existing.note;
+        _cart[product.id] = existing.copyWith(quantity: existing.quantity + 1, note: nextNote);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -313,6 +367,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
               'quantite': item.quantity,
               'prix_unitaire': item.product.price,
               'total': item.total,
+              if (item.note != null && item.note!.trim().isNotEmpty) 'note': item.note,
             })
         .toList();
 
@@ -974,7 +1029,7 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                             color: _textPrimary, fontWeight: FontWeight.w700),
                       ),
                       ElevatedButton(
-                        onPressed: () => _addProduct(product),
+                        onPressed: () => _addProductWithNote(product),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _accent,
                           shape: RoundedRectangleBorder(
@@ -1157,10 +1212,46 @@ class _NewOrderScreenState extends State<NewOrderScreen> {
                   '${item.product.price.toStringAsFixed(2)} MAD',
                   style: const TextStyle(color: _textSecondary, fontSize: 11),
                 ),
+                if (item.note != null && item.note!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.note!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: _textSecondary,
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Note',
+            onPressed: () async {
+              final note = await _askItemNote(
+                title: 'Note pour "${item.product.name}"',
+                initial: item.note,
+              );
+              if (!mounted || note == null) return;
+              setState(() {
+                final existing = _cart[item.product.id];
+                if (existing == null) return;
+                _cart[item.product.id] = existing.copyWith(
+                  note: note.trim().isEmpty ? null : note.trim(),
+                );
+              });
+            },
+            icon: Icon(
+              Icons.edit_note_rounded,
+              color: (item.note != null && item.note!.trim().isNotEmpty)
+                  ? _accent
+                  : _textSecondary,
+            ),
+          ),
           Row(
             children: [
               IconButton(

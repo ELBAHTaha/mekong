@@ -471,8 +471,13 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
   void _showAddTableDialog() {
     final numberCtrl = TextEditingController();
     final capacityCtrl = TextEditingController(text: '2');
-    final xCtrl = TextEditingController(text: '100');
-    final yCtrl = TextEditingController(text: '100');
+    // Avoid stacking all tables at the same position in plan view.
+    // Compute a simple grid-like default position based on current count.
+    final idx = _tables.length;
+    final baseX = 80 + (idx % 6) * 80;
+    final baseY = 240 + (idx ~/ 6) * 80;
+    final xCtrl = TextEditingController(text: '$baseX');
+    final yCtrl = TextEditingController(text: '$baseY');
     TableState selectedState = TableState.LIBRE;
     TableShape selectedShape = TableShape.SQUARE;
 

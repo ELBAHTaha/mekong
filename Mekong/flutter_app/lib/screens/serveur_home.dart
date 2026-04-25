@@ -218,6 +218,69 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
 
   void _incItem(MenuProduct product) => _addProduct(product);
 
+  Future<String?> _askItemNote({required String title, String? initial}) async {
+    final ctrl = TextEditingController(text: initial ?? '');
+    final res = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Ex: sans salade, sauce à part…',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ''),
+            child: const Text('Sans note'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    return res;
+  }
+
+  Future<void> _addProductWithNote(MenuProduct product) async {
+    final existing = _order[product.id];
+    final note = await _askItemNote(
+      title: 'Note pour "${product.name}"',
+      initial: existing?.note,
+    );
+    if (!mounted) return;
+    if (note == null) return;
+
+    final noteValue = note.trim().isEmpty ? null : note.trim();
+
+    // Detect if this add happens on an existing (already loaded) table order.
+    final isFullTable = _selectedTable != null && _order.isNotEmpty;
+    setState(() {
+      final current = _order[product.id];
+      if (current != null) {
+        _order[product.id] = current.copyWith(
+          quantity: current.quantity + 1,
+          note: current.note ?? noteValue,
+        );
+      } else {
+        _order[product.id] = OrderItem(product: product, quantity: 1, note: noteValue);
+      }
+    });
+
+    if (isFullTable) {
+      _notifyKitchenAdd(product, 1, note: noteValue);
+    }
+  }
+
   void _decItem(MenuProduct product) {
     final existed = _order[product.id];
     final hadQty = existed?.quantity ?? 0;
@@ -259,7 +322,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
     }
   }
 
-  Future<void> _notifyKitchenAdd(MenuProduct product, int qtyAdded) async {
+  Future<void> _notifyKitchenAdd(MenuProduct product, int qtyAdded, {String? note}) async {
     final table = _selectedTable;
     if (table == null) return;
     try {
@@ -273,6 +336,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
         'produit_nom': product.name,
         'quantite': qtyAdded,
         'prix_unitaire': product.price,
+        if (note != null && note.trim().isNotEmpty) 'note': note,
         'timestamp': DateTime.now().toIso8601String(),
       });
     } catch (_) {}
@@ -401,6 +465,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
         'quantite': it.quantity,
         'prix_unitaire': it.product.price,
         'total': it.quantity * it.product.price,
+        if (it.note != null && it.note!.trim().isNotEmpty) 'note': it.note,
       };
     }).toList();
 
@@ -970,7 +1035,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _addProduct(product),
+                          onPressed: () => _addProductWithNote(product),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFD43B3B),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -1081,7 +1146,42 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                 Text(item.product.name, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text('${item.product.price.toStringAsFixed(2)} MAD', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                if (item.note != null && item.note!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.note!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
               ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Note',
+            onPressed: () async {
+              final note = await _askItemNote(
+                title: 'Note pour "${item.product.name}"',
+                initial: item.note,
+              );
+              if (!mounted || note == null) return;
+              setState(() {
+                final existing = _order[item.product.id];
+                if (existing == null) return;
+                _order[item.product.id] =
+                    existing.copyWith(note: note.trim().isEmpty ? null : note.trim());
+              });
+            },
+            icon: Icon(
+              Icons.edit_note_rounded,
+              color: (item.note != null && item.note!.trim().isNotEmpty)
+                  ? const Color(0xFFD43B3B)
+                  : Colors.black45,
             ),
           ),
           Row(
@@ -1172,13 +1272,15 @@ class MenuProduct {
 class OrderItem {
   final MenuProduct product;
   final int quantity;
+  final String? note;
 
-  OrderItem({required this.product, required this.quantity});
+  OrderItem({required this.product, required this.quantity, this.note});
 
-  OrderItem copyWith({MenuProduct? product, int? quantity}) {
+  OrderItem copyWith({MenuProduct? product, int? quantity, String? note}) {
     return OrderItem(
       product: product ?? this.product,
       quantity: quantity ?? this.quantity,
+      note: note ?? this.note,
     );
   }
 }

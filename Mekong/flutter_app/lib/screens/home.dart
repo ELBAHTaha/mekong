@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import '../services/api_service.dart';
 import '../models/user.dart';
 import '../models/dashboard.dart';
+import 'tables.dart';
 import '../widgets/main_bottom_nav.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,6 +31,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showActions = false;
   bool _showOrders = false;
   bool _showChart = false;
+
+  // Tables (near real-time)
+  List<RestaurantTable> _tables = [];
+  Timer? _tablesTimer;
+  static const Duration _tablesRefreshInterval = Duration(seconds: 5);
 
   // Déplacer les constantes de couleur au niveau de la classe
   static const Color bg = Color(0xFFF7F7FB);
@@ -86,6 +93,55 @@ class _HomeScreenState extends State<HomeScreen> {
     Future.delayed(const Duration(milliseconds: 1100), () {
       if (mounted) setState(() => _showChart = true);
     });
+
+    // Keep tables synchronized like serveur screen (polling).
+    _loadTables(silent: true);
+    _tablesTimer = Timer.periodic(_tablesRefreshInterval, (_) {
+      _loadTables(silent: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tablesTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadTables({bool silent = false}) async {
+    try {
+      final raw = await _api.fetchTables();
+      final next = raw
+          .map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>))
+          .toList()
+        ..sort((a, b) => a.number.compareTo(b.number));
+      if (!mounted) return;
+      setState(() => _tables = next);
+    } catch (_) {
+      // ignore errors silently to keep dashboard responsive
+      if (!silent) rethrow;
+    }
+  }
+
+  Color _tableColor(TableState state) {
+    switch (state) {
+      case TableState.LIBRE:
+        return successColor;
+      case TableState.OCCUPEE:
+        return Colors.redAccent;
+      case TableState.RESERVEE:
+        return warningColor;
+    }
+  }
+
+  String _tableLabel(TableState state) {
+    switch (state) {
+      case TableState.LIBRE:
+        return 'Libre';
+      case TableState.OCCUPEE:
+        return 'Occupée';
+      case TableState.RESERVEE:
+        return 'Réservée';
+    }
   }
 
   Future<void> _loadAll(String token) async {
@@ -365,6 +421,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 32),
+
+                  // Tables (real-time card)
+                  _buildTablesRealtimeCard(),
                   const SizedBox(height: 32),
 
                   // Recent Orders Section
@@ -889,6 +949,174 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTablesRealtimeCard() {
+    // On Flutter web, hot reload can keep an existing State instance alive even
+    // when new fields are added, which may surface as a JS "undefined" error.
+    // Guard so the dashboard doesn't crash; a hot restart will fully initialize.
+    List<RestaurantTable> tables;
+    try {
+      tables = _tables;
+    } catch (_) {
+      tables = const <RestaurantTable>[];
+    }
+
+    final libre = tables.where((t) => t.state == TableState.LIBRE).length;
+    final occupee = tables.where((t) => t.state == TableState.OCCUPEE).length;
+    final reservee = tables.where((t) => t.state == TableState.RESERVEE).length;
+    final total = tables.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Tables (temps réel)',
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pushNamed('/tables'),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                child: const Row(
+                  children: [
+                    Text('Ouvrir', style: TextStyle(color: Color(0xFF9B59B6))),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded,
+                        color: Color(0xFF9B59B6), size: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildTableStatChip('Total', '$total', const Color(0xFF9B59B6)),
+              _buildTableStatChip('Libre', '$libre', successColor),
+              _buildTableStatChip('Occupée', '$occupee', Colors.redAccent),
+              _buildTableStatChip('Réservée', '$reservee', warningColor),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (tables.isEmpty)
+            const Text(
+              'Aucune table trouvée.',
+              style: TextStyle(color: Colors.black54),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: tables.take(16).map((t) {
+                final c = _tableColor(t.state);
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: c.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: c.withOpacity(0.25)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Table ${t.number}',
+                        style: const TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _tableLabel(t.state),
+                        style: TextStyle(
+                          color: c,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableStatChip(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),

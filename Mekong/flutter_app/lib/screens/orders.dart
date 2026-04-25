@@ -115,6 +115,20 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
   final List<String> _statuts = ['TOUS', 'NOUVELLE', 'PREPARATION', 'PRETE', 'LIVRAISON', 'LIVREE', 'ANNULEE'];
   final List<String> _types = ['TOUS', 'SUR_PLACE', 'LIVRAISON'];
 
+  bool _isPayeOrEnPaiement(Commande c) {
+    // "Payée" tab should include orders that are already being paid.
+    // We treat any positive amount paid as "in payment", and also allow backend status hints.
+    if (c.montantPaye > 0) return true;
+    final s = (c.statutPaiement ?? '').trim().toUpperCase();
+    if (s.isEmpty) return false;
+    // Some deployments may put values like PAYE / PAYÉ / EN_COURS / PARTIEL.
+    if (s.contains('PAY')) return true;
+    if (s.contains('PAI')) return true;
+    if (s.contains('EN_COURS')) return true;
+    if (s.contains('PART')) return true;
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -391,7 +405,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
     int totalCommandes = filteredCommandes.length;
     double totalCA = filteredCommandes.fold(0, (sum, c) => sum + c.total);
     int enPreparation = filteredCommandes.where((c) => c.statut == 'PREPARATION' || c.statut == 'NOUVELLE').length;
-    int pretes = filteredCommandes.where((c) => c.statut == 'PRETE').length;
+    int pretes = filteredCommandes.where((c) => c.statut == 'PRETE' || _isPayeOrEnPaiement(c)).length;
     int livraison = filteredCommandes.where((c) => c.statut == 'LIVRAISON').length;
     
     return Container(
@@ -403,7 +417,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
             _buildStatCard('CA total', '${totalCA.toStringAsFixed(2)} MAD',
                 Icons.euro, Colors.black87, const Color(0xFFD43B3B), totalCommandes),
             _buildStatCard('En cours', '$enPreparation', Icons.pending, Colors.orange, Colors.orange.withOpacity(0.2), null),
-            _buildStatCard('Prêtes', '$pretes', Icons.check_circle, Colors.green, Colors.green.withOpacity(0.2), null),
+            _buildStatCard('Payées', '$pretes', Icons.check_circle, Colors.green, Colors.green.withOpacity(0.2), null),
             _buildStatCard('Livraison', '$livraison', Icons.delivery_dining, Colors.blue, Colors.blue.withOpacity(0.2), null),
           ],
         ),
@@ -486,8 +500,8 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
       child: Row(
         children: [
           _buildTabItem(0, 'Toutes', Icons.receipt),
-          _buildTabItem(1, 'À préparer', Icons.restaurant),
-          _buildTabItem(2, 'Prêtes', Icons.check_circle_outline),
+          _buildTabItem(1, 'En cours', Icons.restaurant),
+          _buildTabItem(2, 'Payées', Icons.check_circle_outline),
           _buildTabItem(3, 'Livraison', Icons.delivery_dining),
         ],
       ),
@@ -499,7 +513,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
     int count = 0;
     
     if (index == 1) count = _commandes.where((c) => c.statut == 'NOUVELLE' || c.statut == 'PREPARATION').length;
-    if (index == 2) count = _commandes.where((c) => c.statut == 'PRETE').length;
+    if (index == 2) count = _commandes.where((c) => c.statut == 'PRETE' || _isPayeOrEnPaiement(c)).length;
     if (index == 3) count = _commandes.where((c) => c.statut == 'LIVRAISON').length;
     if (index == 0) count = _commandes.length;
     
@@ -563,7 +577,9 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
         commandes = commandes.where((c) => c.statut == 'NOUVELLE' || c.statut == 'PREPARATION').toList();
         break;
       case 2:
-        commandes = commandes.where((c) => c.statut == 'PRETE').toList();
+        commandes = commandes
+            .where((c) => c.statut == 'PRETE' || _isPayeOrEnPaiement(c))
+            .toList();
         break;
       case 3:
         commandes = commandes.where((c) => c.statut == 'LIVRAISON').toList();
@@ -1469,9 +1485,10 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
 
   String _getStatutLabel(String statut) {
     switch (statut) {
-      case 'NOUVELLE': return 'NOUVELLE';
-      case 'PREPARATION': return 'PRÉPARATION';
-      case 'PRETE': return 'PRÊTE';
+      // Admin wording: unpaid orders are "En cours", paid orders are "Payées".
+      case 'NOUVELLE': return 'EN COURS';
+      case 'PREPARATION': return 'EN COURS';
+      case 'PRETE': return 'PAYÉE';
       case 'LIVRAISON': return 'LIVRAISON';
       case 'LIVREE': return 'LIVRÉE';
       case 'ANNULEE': return 'ANNULÉE';
@@ -1517,6 +1534,8 @@ class Commande {
   final String type;
   final String statut;
   final double total;
+  final double montantPaye;
+  final String? statutPaiement;
   final int? table_id;
   final String? serveur_nom;
   final DateTime date_commande;
@@ -1531,6 +1550,8 @@ class Commande {
     required this.type,
     required this.statut,
     required this.total,
+    this.montantPaye = 0.0,
+    this.statutPaiement,
     this.table_id,
     this.serveur_nom,
     required this.date_commande,
@@ -1546,6 +1567,8 @@ class Commande {
     String? type,
     String? statut,
     double? total,
+    double? montantPaye,
+    String? statutPaiement,
     int? table_id,
     String? serveur_nom,
     DateTime? date_commande,
@@ -1560,6 +1583,8 @@ class Commande {
       type: type ?? this.type,
       statut: statut ?? this.statut,
       total: total ?? this.total,
+      montantPaye: montantPaye ?? this.montantPaye,
+      statutPaiement: statutPaiement ?? this.statutPaiement,
       table_id: table_id ?? this.table_id,
       serveur_nom: serveur_nom ?? this.serveur_nom,
       date_commande: date_commande ?? this.date_commande,
@@ -1610,6 +1635,10 @@ class Commande {
       type: (json['type'] as String?)?.isNotEmpty == true ? json['type'] as String : 'SUR_PLACE',
       statut: (json['statut'] as String?)?.isNotEmpty == true ? json['statut'] as String : 'NOUVELLE',
       total: (json['total'] is num) ? (json['total'] as num).toDouble() : double.tryParse('${json['total']}') ?? 0.0,
+      montantPaye: (json['montant_paye'] is num)
+          ? (json['montant_paye'] as num).toDouble()
+          : double.tryParse('${json['montant_paye']}') ?? 0.0,
+      statutPaiement: json['statut_paiement']?.toString(),
       table_id: json['table_id'] as int?,
       serveur_nom: json['serveur_nom'] as String?,
       date_commande: json['date_commande'] != null ? DateTime.parse(json['date_commande'] as String) : DateTime.now(),
