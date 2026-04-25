@@ -12,6 +12,8 @@ use App\Http\Controllers\CommandesController;
 Route::get('/hello', [ApiController::class, 'hello']);
 Route::get('/dashboard', [ApiController::class, 'dashboard']);
 Route::get('/ventes-par-mois', [ApiController::class, 'ventesParMois']);
+Route::post('/kitchen/cancel', [ApiController::class, 'kitchenCancel']);
+Route::post('/kitchen/add', [ApiController::class, 'kitchenAdd']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 Route::get('/user', [AuthController::class, 'user']);

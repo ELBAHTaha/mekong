@@ -5,11 +5,24 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Produit;
 use App\Models\CategorieProduit;
 
 class ProductsController extends Controller
 {
+    private function storeUploadedPhoto(Request $request, string $folder): ?string
+    {
+        if (!$request->hasFile('photo_file')) {
+            return null;
+        }
+        $file = $request->file('photo_file');
+        if (!$file || !$file->isValid()) {
+            return null;
+        }
+        return $file->store($folder, 'public');
+    }
+
     private function authFromRequest(Request $request)
     {
         $authHeader = $request->header('Authorization');
@@ -66,19 +79,23 @@ class ProductsController extends Controller
             'description' => 'nullable|string',
             'prix' => 'required|numeric',
             'photo' => 'nullable|string|max:255',
+            'photo_file' => 'nullable|file|image|max:5120',
             'categorie_id' => 'nullable|integer|exists:categories_produits,id',
             'actif' => 'nullable|boolean',
             'Disponible' => 'nullable|in:OUI,NON',
+            'type_personnel' => 'nullable|in:AUCUN,CUISINIER_WOK,CUISINIER_SJS',
         ]);
 
         $prod = new Produit();
         $prod->nom = $data['nom'];
         $prod->description = $data['description'] ?? null;
         $prod->prix = $data['prix'];
-        $prod->photo = $data['photo'] ?? null;
+        $uploaded = $this->storeUploadedPhoto($request, 'uploads/produits');
+        $prod->photo = $uploaded ?? ($data['photo'] ?? null);
         $prod->categorie_id = $data['categorie_id'] ?? null;
         $prod->actif = isset($data['actif']) ? (bool)$data['actif'] : 1;
         $prod->Disponible = $data['Disponible'] ?? null;
+        $prod->type_personnel = $data['type_personnel'] ?? null;
         $prod->created_at = now();
         $prod->save();
 
@@ -91,6 +108,7 @@ class ProductsController extends Controller
             'categorie_id' => $prod->categorie_id,
             'actif' => $prod->actif,
             'Disponible' => $prod->Disponible,
+            'type_personnel' => $prod->type_personnel,
         ], 201);
     }
 
@@ -107,18 +125,26 @@ class ProductsController extends Controller
             'description' => 'nullable|string',
             'prix' => 'nullable|numeric',
             'photo' => 'nullable|string|max:255',
+            'photo_file' => 'nullable|file|image|max:5120',
             'categorie_id' => 'nullable|integer|exists:categories_produits,id',
             'actif' => 'nullable|boolean',
             'Disponible' => 'nullable|in:OUI,NON',
+            'type_personnel' => 'nullable|in:AUCUN,CUISINIER_WOK,CUISINIER_SJS',
         ]);
 
         if (isset($data['nom'])) $prod->nom = $data['nom'];
         if (array_key_exists('description', $data)) $prod->description = $data['description'];
         if (isset($data['prix'])) $prod->prix = $data['prix'];
-        if (array_key_exists('photo', $data)) $prod->photo = $data['photo'];
+        $uploaded = $this->storeUploadedPhoto($request, 'uploads/produits');
+        if ($uploaded) {
+            $prod->photo = $uploaded;
+        } elseif (array_key_exists('photo', $data)) {
+            $prod->photo = $data['photo'];
+        }
         if (isset($data['categorie_id'])) $prod->categorie_id = $data['categorie_id'];
         if (isset($data['actif'])) $prod->actif = (bool)$data['actif'];
         if (isset($data['Disponible'])) $prod->Disponible = $data['Disponible'];
+        if (array_key_exists('type_personnel', $data)) $prod->type_personnel = $data['type_personnel'];
 
         $prod->save();
 
@@ -131,6 +157,7 @@ class ProductsController extends Controller
             'categorie_id' => $prod->categorie_id,
             'actif' => $prod->actif,
             'Disponible' => $prod->Disponible,
+            'type_personnel' => $prod->type_personnel,
         ]);
     }
 

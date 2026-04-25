@@ -118,24 +118,38 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0C0E),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white70, size: 20),
-          onPressed: () => Navigator.pop(context),
+          icon:
+              const Icon(Icons.arrow_back_ios, color: Colors.black54, size: 20),
+          onPressed: () {
+            final nav = Navigator.of(context);
+            if (nav.canPop()) {
+              nav.pop();
+            } else {
+              nav.pushReplacementNamed('/home');
+            }
+          },
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Commandes du jour',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700),
             ),
             Text(
               _formatDate(DateTime.now()),
-              style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.normal),
+              style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal),
             ),
           ],
         ),
@@ -147,16 +161,17 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
           ),
           // Filtres
           PopupMenuButton<String>(
-            icon: const Icon(Icons.tune, color: Colors.white70),
-            color: const Color(0xFF1B1D20),
+            icon: const Icon(Icons.tune, color: Colors.black54),
+            color: Colors.white,
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'stats',
                 child: Row(
                   children: [
-                    Icon(Icons.show_chart, color: Colors.white70, size: 18),
+                    Icon(Icons.show_chart, color: Colors.black54, size: 18),
                     SizedBox(width: 12),
-                    Text('Afficher/Masquer stats', style: TextStyle(color: Colors.white)),
+                    Text('Afficher/Masquer stats',
+                        style: TextStyle(color: Colors.black87)),
                   ],
                 ),
               ),
@@ -164,9 +179,9 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                 value: 'export',
                 child: Row(
                   children: [
-                    Icon(Icons.download, color: Colors.white70, size: 18),
+                    Icon(Icons.download, color: Colors.black54, size: 18),
                     SizedBox(width: 12),
-                    Text('Exporter', style: TextStyle(color: Colors.white)),
+                    Text('Exporter', style: TextStyle(color: Colors.black87)),
                   ],
                 ),
               ),
@@ -206,22 +221,30 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TextField(
         onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: Colors.black87),
         decoration: InputDecoration(
           hintText: 'Rechercher commande, client, table...',
-          hintStyle: const TextStyle(color: Colors.white38),
-          prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
+          hintStyle: const TextStyle(color: Colors.black38),
+          prefixIcon: const Icon(Icons.search, color: Colors.black45, size: 20),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.white54, size: 18),
+                  icon: const Icon(Icons.clear, color: Colors.black45, size: 18),
                   onPressed: () => setState(() => _searchQuery = ''),
                 )
               : null,
           filled: true,
-          fillColor: const Color(0xFF1B1D20),
+          fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30),
             borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: Colors.black12),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: Color(0xFFD43B3B), width: 2),
           ),
           contentPadding: const EdgeInsets.symmetric(vertical: 0),
         ),
@@ -231,6 +254,10 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
 
   // ============ FILTRES RAPIDES ============
   Widget _buildQuickFilters() {
+    final persons = _filterBy == 'SERVEUR'
+        ? _serveurs
+        : (_filterBy == 'CAISSIER' ? _caissiers : _personnel);
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -240,9 +267,9 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
           ToggleButtons(
             isSelected: _filterSelected,
             borderRadius: BorderRadius.circular(20),
-            selectedColor: Colors.white,
-            fillColor: Colors.white12,
-            color: Colors.white70,
+            selectedColor: Colors.black87,
+            fillColor: Colors.black.withOpacity(0.06),
+            color: Colors.black54,
             constraints: const BoxConstraints(minWidth: 72, minHeight: 36),
             onPressed: (index) {
               setState(() {
@@ -266,7 +293,8 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                const Text('Inclure commande_serveur', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const Text('Inclure commande_serveur',
+                    style: TextStyle(color: Colors.black54, fontSize: 12)),
                 const SizedBox(width: 8),
                 Switch.adaptive(
                   value: _includeServeur,
@@ -286,19 +314,34 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1D20),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white24),
+                border: Border.all(color: Colors.black12),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int?>(
                   value: _selectedPersonneId,
-                  dropdownColor: const Color(0xFF1B1D20),
-                  hint: const Text('Sélectionner', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  dropdownColor: Colors.white,
+                  hint: const Text('Sélectionner',
+                      style: TextStyle(color: Colors.black54, fontSize: 12)),
+                  style: const TextStyle(color: Colors.black87, fontSize: 12),
                   items: [
-                    const DropdownMenuItem<int?>(value: null, child: Text('Tous', style: TextStyle(color: Colors.white))),
-                    ...((_filterBy == 'SERVEUR' ? _serveurs : (_filterBy == 'CAISSIER' ? _caissiers : _personnel))).map((u) => DropdownMenuItem<int?>(value: u.id, child: Text(u.name, style: const TextStyle(color: Colors.white)))),
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(
+                        'Tous',
+                        style: TextStyle(color: Colors.black87),
+                      ),
+                    ),
+                    ...persons
+                        .map((u) => DropdownMenuItem<int?>(
+                              value: u.id,
+                              child: Text(
+                                u.name,
+                                style: const TextStyle(color: Colors.black87),
+                              ),
+                            ))
+                        .toList(),
                   ],
                   onChanged: (val) {
                     setState(() {
@@ -357,7 +400,8 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _buildStatCard('CA total', '${totalCA.toStringAsFixed(2)} MAD', Icons.euro, Colors.white, const Color(0xFFD43B3B), totalCommandes),
+            _buildStatCard('CA total', '${totalCA.toStringAsFixed(2)} MAD',
+                Icons.euro, Colors.black87, const Color(0xFFD43B3B), totalCommandes),
             _buildStatCard('En cours', '$enPreparation', Icons.pending, Colors.orange, Colors.orange.withOpacity(0.2), null),
             _buildStatCard('Prêtes', '$pretes', Icons.check_circle, Colors.green, Colors.green.withOpacity(0.2), null),
             _buildStatCard('Livraison', '$livraison', Icons.delivery_dining, Colors.blue, Colors.blue.withOpacity(0.2), null),
@@ -372,9 +416,9 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.black12),
       ),
       child: Row(
         children: [
@@ -395,7 +439,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                style: const TextStyle(color: Colors.black54, fontSize: 11),
               ),
               const SizedBox(height: 2),
               FittedBox(
@@ -417,7 +461,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                       const SizedBox(width: 4),
                       Text(
                         '/ $total',
-                        style: const TextStyle(color: Colors.white38, fontSize: 12),
+                        style: const TextStyle(color: Colors.black38, fontSize: 12),
                       ),
                     ],
                   ],
@@ -435,8 +479,9 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.black12),
       ),
       child: Row(
         children: [
@@ -470,12 +515,13 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: isSelected ? Colors.white : Colors.white60, size: 16),
+              Icon(icon,
+                  color: isSelected ? Colors.white : Colors.black54, size: 16),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white60,
+                  color: isSelected ? Colors.white : Colors.black54,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -485,13 +531,15 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.35)
+                        : Colors.black.withOpacity(0.06),
                     shape: BoxShape.circle,
                   ),
                   child: Text(
                     count.toString(),
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
+                      color: isSelected ? Colors.white : Colors.black54,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -600,7 +648,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                   Text(
                     'Total: ${commandesSection.fold<double>(0.0, (double sum, Commande c) => sum + c.total).toStringAsFixed(2)} MAD',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.black54,
                       fontSize: 12,
                     ),
                   ),
@@ -623,16 +671,16 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
     
     return Container(
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color: Colors.white,
         border: Border.all(
           color: isUrgent && commande.statut == 'NOUVELLE'
               ? const Color(0xFFD43B3B).withOpacity(0.5)
-              : Colors.transparent,
+              : Colors.black12,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -675,7 +723,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                               Text(
                                 '#${commande.id}',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.black87,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -722,24 +770,27 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                               Icon(
                                 commande.type == 'SUR_PLACE' ? Icons.table_restaurant : Icons.person,
                                 size: 12,
-                                color: Colors.white54,
+                                color: Colors.black45,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 commande.clientNom,
-                                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                style: const TextStyle(
+                                    color: Colors.black54, fontSize: 13),
                               ),
                               if (commande.table_id != null) ...[
                                 const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
+                                    color: Colors.black.withOpacity(0.04),
                                     borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.black12),
                                   ),
                                   child: Text(
                                     'Table ${commande.table_id}',
-                                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                    style: const TextStyle(
+                                        color: Colors.black54, fontSize: 11),
                                   ),
                                 ),
                               ],
@@ -765,7 +816,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                           style: TextStyle(
                             color: isUrgent && commande.statut == 'NOUVELLE' 
                                 ? const Color(0xFFD43B3B) 
-                                : Colors.white38,
+                                : Colors.black45,
                             fontSize: 11,
                           ),
                         ),
@@ -803,7 +854,8 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                             const SizedBox(width: 4),
                             Text(
                               produit.nom,
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(
+                                  color: Colors.black87, fontSize: 12),
                             ),
                           ],
                         ),
@@ -818,21 +870,25 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                   Row(
                     children: [
                       if (commande.serveur_nom != null) ...[
-                        Icon(Icons.person_outline, size: 12, color: Colors.white38),
+                        Icon(Icons.person_outline,
+                            size: 12, color: Colors.black45),
                         const SizedBox(width: 4),
                         Text(
                           commande.serveur_nom!,
-                          style: const TextStyle(color: Colors.white38, fontSize: 11),
+                          style:
+                              const TextStyle(color: Colors.black45, fontSize: 11),
                         ),
                       ],
                       const SizedBox(width: 12),
                       if (commande.notes != null) ...[
-                        Icon(Icons.note_outlined, size: 12, color: Colors.white38),
+                        Icon(Icons.note_outlined,
+                            size: 12, color: Colors.black45),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             commande.notes!,
-                            style: const TextStyle(color: Colors.white38, fontSize: 11),
+                            style: const TextStyle(
+                                color: Colors.black45, fontSize: 11),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -909,7 +965,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
           builder: (context, scrollController) {
             return Container(
               decoration: const BoxDecoration(
-                color: Color(0xFF0F1113),
+                color: Color(0xFFF7F7FB),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
               child: Column(
@@ -920,7 +976,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: Colors.black12,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -949,7 +1005,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                               Text(
                                 'Commande #${commande.id}',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.black87,
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -957,13 +1013,14 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 commande.clientNom,
-                                style: const TextStyle(color: Colors.white70, fontSize: 15),
+                                style: const TextStyle(
+                                    color: Colors.black54, fontSize: 15),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white70),
+                          icon: const Icon(Icons.close, color: Colors.black54),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -980,8 +1037,9 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1B1D20),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.black12),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1006,7 +1064,8 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                                     children: [
                                       const Text(
                                         'Statut',
-                                        style: TextStyle(color: Colors.white54, fontSize: 11),
+                                        style: TextStyle(
+                                            color: Colors.black54, fontSize: 11),
                                       ),
                                       Text(
                                         _getStatutLabel(commande.statut),
@@ -1025,11 +1084,15 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                                 children: [
                                   const Text(
                                     'Heure',
-                                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                                    style: TextStyle(
+                                        color: Colors.black54, fontSize: 11),
                                   ),
                                   Text(
                                     _formatHeure(commande.date_commande),
-                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
@@ -1043,19 +1106,24 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1B1D20),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.black12),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Row(
                                 children: [
-                                  Icon(Icons.info_outline, color: Colors.white70, size: 18),
+                                  Icon(Icons.info_outline,
+                                      color: Colors.black54, size: 18),
                                   SizedBox(width: 8),
                                   Text(
                                     'Informations',
-                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
@@ -1066,21 +1134,26 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                               if (commande.telephone != null) _buildDetailRow('Téléphone', commande.telephone!),
                               if (commande.serveur_nom != null) _buildDetailRow('Serveur', commande.serveur_nom!),
                               if (commande.notes != null) ...[
-                                const Divider(color: Colors.white24, height: 24),
+                                const Divider(color: Colors.black12, height: 24),
                                 const Text(
                                   'Notes',
-                                  style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                      color: Colors.black54,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 8),
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.05),
+                                    color: Colors.black.withOpacity(0.04),
                                     borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.black12),
                                   ),
                                   child: Text(
                                     commande.notes!,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                    style: const TextStyle(
+                                        color: Colors.black87, fontSize: 14),
                                   ),
                                 ),
                               ],
@@ -1094,8 +1167,9 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1B1D20),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.black12),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1105,23 +1179,29 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                                 children: [
                                   const Row(
                                     children: [
-                                      Icon(Icons.receipt, color: Colors.white70, size: 18),
+                                      Icon(Icons.receipt,
+                                          color: Colors.black54, size: 18),
                                       SizedBox(width: 8),
                                       Text(
                                         'Articles',
-                                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                                        style: TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600),
                                       ),
                                     ],
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
+                                      color: Colors.black.withOpacity(0.04),
                                       borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: Colors.black12),
                                     ),
                                     child: Text(
                                       '${commande.produits.length} article${commande.produits.length > 1 ? 's' : ''}',
-                                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                      style: const TextStyle(
+                                          color: Colors.black54, fontSize: 12),
                                     ),
                                   ),
                                 ],
@@ -1156,29 +1236,39 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                                         children: [
                                           Text(
                                             produit.nom,
-                                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                                            style: const TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w500),
                                           ),
                                           Text(
                                             '${produit.prix_unitaire.toStringAsFixed(2)} MAD',
-                                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                                            style: const TextStyle(
+                                                color: Colors.black54, fontSize: 12),
                                           ),
                                         ],
                                       ),
                                     ),
                                     Text(
                                       '${produit.total.toStringAsFixed(2)} MAD',
-                                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                                      style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
                               )),
-                              const Divider(color: Colors.white24, height: 24),
+                              const Divider(color: Colors.black12, height: 24),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     'Total',
-                                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600),
                                   ),
                                   Text(
                                     '${commande.total.toStringAsFixed(2)} MAD',
@@ -1205,8 +1295,8 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
                                 icon: const Icon(Icons.close, size: 18),
                                 label: const Text('Fermer'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white70,
-                                  side: const BorderSide(color: Colors.white24),
+                                  foregroundColor: Colors.black54,
+                                  side: const BorderSide(color: Colors.black12),
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
@@ -1240,11 +1330,14 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white54, fontSize: 13),
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
           ),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -1260,20 +1353,20 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
           Container(
             padding: const EdgeInsets.all(30),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.black.withOpacity(0.04),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.receipt_long,
               size: 60,
-              color: Colors.white24,
+              color: Colors.black12,
             ),
           ),
           const SizedBox(height: 24),
           const Text(
             'Aucune commande',
             style: TextStyle(
-              color: Colors.white,
+              color: Colors.black87,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -1281,7 +1374,7 @@ class _CommandesJourScreenState extends State<CommandesJourScreen> {
           const SizedBox(height: 8),
           const Text(
             'Les commandes du jour apparaîtront ici',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
+            style: TextStyle(color: Colors.black54, fontSize: 14),
           ),
           const SizedBox(height: 32),
           ElevatedButton.icon(

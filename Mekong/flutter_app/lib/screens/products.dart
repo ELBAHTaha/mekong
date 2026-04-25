@@ -1,13 +1,27 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import '../widgets/main_bottom_nav.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({Key? key}) : super(key: key);
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
+}
+
+class _PickedImage {
+  _PickedImage(this.file, this.bytes);
+
+  final XFile file;
+  final Uint8List bytes;
+
+  String get name => file.name;
+  String get path => file.path;
+  String? get mimeType => file.mimeType;
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
@@ -68,14 +82,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _loadProductsFromApi();
   }
 
-  Future<String?> _pickImagePath() async {
+  Future<_PickedImage?> _pickImage() async {
     try {
       final picker = ImagePicker();
       final XFile? file = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: 75,
+        maxWidth: 1600,
+        maxHeight: 1600,
       );
-      return file?.path;
+      if (file == null) return null;
+      final bytes = await file.readAsBytes();
+      return _PickedImage(file, bytes);
     } catch (_) {
       return null;
     }
@@ -89,10 +107,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white10,
+          color: Colors.black.withOpacity(0.04),
           borderRadius: r,
         ),
-        child: const Icon(Icons.image_outlined, color: Colors.white54, size: 40),
+        child: const Icon(Icons.image_outlined, color: Colors.black45, size: 32),
       );
     }
     return ClipRRect(
@@ -105,9 +123,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
         errorBuilder: (_, __, ___) => Container(
           width: width,
           height: height,
-          color: Colors.white10,
+          color: Colors.black.withOpacity(0.04),
           alignment: Alignment.center,
-          child: const Icon(Icons.broken_image_outlined, color: Colors.white54),
+          child: const Icon(Icons.broken_image_outlined, color: Colors.black45),
         ),
       ),
     );
@@ -117,8 +135,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final nameCtrl = TextEditingController(text: product.name);
     final descCtrl = TextEditingController(text: product.description);
     final priceCtrl = TextEditingController(text: product.price.toString());
-    String? imagePath;
+    _PickedImage? image;
     bool isAvailable = product.isAvailable;
+    String? typePersonnel = product.typePersonnel;
 
     showDialog(
       context: context,
@@ -126,7 +145,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         return StatefulBuilder(
           builder: (ctx2, setStateDialog) {
             return Dialog(
-              backgroundColor: const Color(0xFF1B1D20),
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
               child: SingleChildScrollView(
@@ -141,61 +160,61 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         children: [
                           const Text('Modifier le produit',
                               style: TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.black87,
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700)),
                           IconButton(
                               onPressed: () => Navigator.pop(ctx),
                               icon: const Icon(Icons.close,
-                                  color: Colors.white70)),
+                                  color: Colors.black54)),
                         ],
                       ),
                       const SizedBox(height: 16),
                       TextField(
                           controller: nameCtrl,
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.black87),
                           decoration: InputDecoration(
                               labelText: 'Nom',
                               labelStyle:
-                                  const TextStyle(color: Colors.white70),
+                                  const TextStyle(color: Colors.black54),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.03))),
+                              fillColor: Colors.black.withOpacity(0.04))),
                       const SizedBox(height: 12),
                       TextField(
                           controller: descCtrl,
                           maxLines: 3,
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.black87),
                           decoration: InputDecoration(
                               labelText: 'Description',
                               labelStyle:
-                                  const TextStyle(color: Colors.white70),
+                                  const TextStyle(color: Colors.black54),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.03))),
+                              fillColor: Colors.black.withOpacity(0.04))),
                       const SizedBox(height: 12),
                       TextField(
                           controller: priceCtrl,
                           keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.black87),
                           decoration: InputDecoration(
                               labelText: 'Prix',
                               labelStyle:
-                                  const TextStyle(color: Colors.white70),
+                                  const TextStyle(color: Colors.black54),
                               filled: true,
-                              fillColor: Colors.white.withOpacity(0.03))),
+                              fillColor: Colors.black.withOpacity(0.04))),
                       const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () async {
-                                final path = await _pickImagePath();
-                                setStateDialog(() => imagePath = path);
+                                final picked = await _pickImage();
+                                setStateDialog(() => image = picked);
                               },
                               icon: const Icon(Icons.photo_library_outlined),
                               label: const Text('Changer l\'image'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                                side: const BorderSide(color: Colors.white30),
+                                foregroundColor: Colors.black54,
+                                side: const BorderSide(color: Colors.black12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -206,22 +225,58 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      if (imagePath != null)
+                      DropdownButtonFormField<String>(
+                        value: typePersonnel,
+                        decoration: InputDecoration(
+                          labelText: 'Type cuisinier',
+                          labelStyle: const TextStyle(color: Colors.black54),
+                          filled: true,
+                          fillColor: Colors.black.withOpacity(0.04),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black12),
+                          ),
+                        ),
+                        dropdownColor: Colors.white,
+                        items: const [
+                          DropdownMenuItem(value: 'AUCUN', child: Text('Aucun')),
+                          DropdownMenuItem(
+                              value: 'CUISINIER_WOK',
+                              child: Text('Cuisinier Wok')),
+                          DropdownMenuItem(
+                              value: 'CUISINIER_SJS',
+                              child: Text('Cuisinier SJS')),
+                        ],
+                        onChanged: (v) => setStateDialog(() => typePersonnel = v),
+                      ),
+                      const SizedBox(height: 12),
+                      if (image != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(imagePath!),
-                            width: double.infinity,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
+                          child: kIsWeb
+                              ? Image.memory(
+                                  image!.bytes,
+                                  width: double.infinity,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(image!.path),
+                                  width: double.infinity,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                ),
                         )
                       else
                         _imageBox(product.imageUrl, width: double.infinity, height: 150),
                       const SizedBox(height: 12),
                       Row(children: [
                         const Text('Disponible',
-                            style: TextStyle(color: Colors.white70)),
+                            style: TextStyle(color: Colors.black54)),
                         const SizedBox(width: 12),
                         Switch(
                             value: isAvailable,
@@ -235,7 +290,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             child: OutlinedButton(
                                 onPressed: () => Navigator.pop(ctx),
                                 style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white70),
+                                    foregroundColor: Colors.black54),
                                 child: const Text('Annuler'))),
                         const SizedBox(width: 12),
                         Expanded(
@@ -262,8 +317,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       'description': descCtrl.text,
                                       'prix': double.tryParse(priceCtrl.text) ??
                                           product.price,
-                                      if (imagePath != null)
-                                        'photo_file_path': imagePath!,
+                                      'type_personnel': typePersonnel,
+                                      if (image != null) ...{
+                                        'photo_file_bytes': image!.bytes,
+                                        'photo_file_name': image!.name,
+                                        if (image!.mimeType != null)
+                                          'photo_mime_type': image!.mimeType,
+                                      },
                                       'categorie_id':
                                           catObj.id == 0 ? null : catObj.id,
                                       'actif': isAvailable ? 1 : 0,
@@ -271,6 +331,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                     };
                                     final res = await _api.updateProduct(
                                         product.id, payload);
+                                    final rawPhoto =
+                                        (res['photo'] ?? '').toString().trim();
+                                    final resolvedPhoto = rawPhoto.isNotEmpty
+                                        ? _resolveImageUrl(rawPhoto)
+                                        : product.imageUrl;
                                     final updated = Product(
                                       id: product.id,
                                       name: (res['nom'] ?? nameCtrl.text)
@@ -281,10 +346,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                               (res['prix'] ?? product.price)
                                                   .toString()) ??
                                           product.price,
-                                      imageUrl: _resolveImageUrl(
-                                        (res['photo'] ?? product.imageUrl)
-                                            as String,
-                                      ),
+                                      imageUrl: resolvedPhoto,
                                       isAvailable: ((res['actif'] ??
                                                       (isAvailable ? 1 : 0))
                                                   as dynamic) ==
@@ -296,6 +358,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                               'OUI',
                                       preparationTime: product.preparationTime,
                                       categoryId: product.categoryId,
+                                      typePersonnel: (res['type_personnel'] ??
+                                              typePersonnel ??
+                                              product.typePersonnel)
+                                          ?.toString(),
                                     );
                                     setState(() {
                                       if (catKey.isNotEmpty) {
@@ -369,6 +435,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           categoryId: map['categorie_id'] is int
               ? map['categorie_id'] as int
               : int.tryParse('${map['categorie_id']}'),
+          typePersonnel: map['type_personnel']?.toString(),
         );
         grouped.putIfAbsent(cat, () => []).add(p);
         if (catPhoto != null && !categoryPhoto.containsKey(cat)) {
@@ -404,7 +471,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void _showAddCategoryDialog() {
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String? imagePath;
+    _PickedImage? image;
 
     showDialog(
       context: context,
@@ -412,7 +479,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         return StatefulBuilder(
           builder: (ctx2, setStateDialog) {
             return Dialog(
-              backgroundColor: const Color(0xFF1B1D20),
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -429,7 +496,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           const Text(
                             'Nouvelle Catégorie',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: Colors.black87,
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
                             ),
@@ -437,7 +504,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           IconButton(
                             onPressed: () => Navigator.pop(ctx),
                             icon:
-                                const Icon(Icons.close, color: Colors.white70),
+                                const Icon(Icons.close, color: Colors.black54),
                           ),
                         ],
                       ),
@@ -446,19 +513,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       // Nom de la catégorie
                       TextField(
                         controller: nameCtrl,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.black87),
                         decoration: InputDecoration(
                           labelText: 'Nom de la catégorie',
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: const TextStyle(color: Colors.black54),
                           prefixIcon: const Icon(Icons.category_outlined,
-                              color: Colors.white70),
+                              color: Colors.black54),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -466,7 +533,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 color: Color(0xFFD43B3B), width: 2),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
+                          fillColor: Colors.black.withOpacity(0.04),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -475,19 +542,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       TextField(
                         controller: descCtrl,
                         maxLines: 2,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.black87),
                         decoration: InputDecoration(
                           labelText: 'Description',
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: const TextStyle(color: Colors.black54),
                           prefixIcon: const Icon(Icons.description_outlined,
-                              color: Colors.white70),
+                              color: Colors.black54),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -495,7 +562,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 color: Color(0xFFD43B3B), width: 2),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
+                          fillColor: Colors.black.withOpacity(0.04),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -505,14 +572,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () async {
-                                final path = await _pickImagePath();
-                                setStateDialog(() => imagePath = path);
+                                final picked = await _pickImage();
+                                setStateDialog(() => image = picked);
                               },
                               icon: const Icon(Icons.photo_library_outlined),
                               label: const Text('Choisir une image'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                                side: const BorderSide(color: Colors.white30),
+                                foregroundColor: Colors.black54,
+                                side: const BorderSide(color: Colors.black12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -523,15 +590,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      if (imagePath != null)
+                      if (image != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(imagePath!),
-                            width: double.infinity,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
+                          child: kIsWeb
+                              ? Image.memory(
+                                  image!.bytes,
+                                  width: double.infinity,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(image!.path),
+                                  width: double.infinity,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                ),
                         ),
 
                       const SizedBox(height: 16),
@@ -543,8 +617,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(ctx),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                                side: const BorderSide(color: Colors.white30),
+                                foregroundColor: Colors.black54,
+                                side: const BorderSide(color: Colors.black12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -558,7 +632,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () async {
-                                if (nameCtrl.text.isEmpty || imagePath == null) {
+                                if (nameCtrl.text.isEmpty || image == null) {
                                   ScaffoldMessenger.of(ctx).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -572,7 +646,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 try {
                                   final payload = {
                                     'nom': nameCtrl.text,
-                                    'photo_file_path': imagePath!,
+                                    'photo_file_bytes': image!.bytes,
+                                    'photo_file_name': image!.name,
+                                    if (image!.mimeType != null)
+                                      'photo_mime_type': image!.mimeType,
                                   };
                                   final res =
                                       await _api.createCategory(payload);
@@ -660,8 +737,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
-    String? imagePath;
+    _PickedImage? image;
     bool isAvailable = true;
+    String typePersonnel = 'CUISINIER_WOK';
 
     showDialog(
       context: context,
@@ -669,7 +747,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         return StatefulBuilder(
           builder: (ctx2, setStateDialog) {
             return Dialog(
-              backgroundColor: const Color(0xFF1B1D20),
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -686,7 +764,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           Text(
                             'Ajouter un plat ($category)',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Colors.black87,
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
                             ),
@@ -694,7 +772,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           IconButton(
                             onPressed: () => Navigator.pop(ctx),
                             icon:
-                                const Icon(Icons.close, color: Colors.white70),
+                                const Icon(Icons.close, color: Colors.black54),
                           ),
                         ],
                       ),
@@ -703,19 +781,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       // Nom du plat
                       TextField(
                         controller: nameCtrl,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.black87),
                         decoration: InputDecoration(
                           labelText: 'Nom du plat',
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: const TextStyle(color: Colors.black54),
                           prefixIcon: const Icon(Icons.restaurant_menu_outlined,
-                              color: Colors.white70),
+                              color: Colors.black54),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -723,7 +801,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 color: Color(0xFFD43B3B), width: 2),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
+                          fillColor: Colors.black.withOpacity(0.04),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -732,19 +810,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       TextField(
                         controller: descCtrl,
                         maxLines: 3,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.black87),
                         decoration: InputDecoration(
                           labelText: 'Description',
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: const TextStyle(color: Colors.black54),
                           prefixIcon: const Icon(Icons.description_outlined,
-                              color: Colors.white70),
+                              color: Colors.black54),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -752,7 +830,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 color: Color(0xFFD43B3B), width: 2),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
+                          fillColor: Colors.black.withOpacity(0.04),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -761,22 +839,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       TextField(
                         controller: priceCtrl,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.black87),
                         decoration: InputDecoration(
                           labelText: 'Prix (MAD)',
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: const TextStyle(color: Colors.black54),
                           prefixIcon: const Icon(
                               Icons.currency_exchange_outlined,
-                              color: Colors.white70),
+                              color: Colors.black54),
                           suffixText: 'MAD',
-                          suffixStyle: const TextStyle(color: Colors.white70),
+                          suffixStyle: const TextStyle(color: Colors.black54),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.white30),
+                            borderSide: const BorderSide(color: Colors.black12),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -784,7 +862,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 color: Color(0xFFD43B3B), width: 2),
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
+                          fillColor: Colors.black.withOpacity(0.04),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -794,14 +872,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () async {
-                                final path = await _pickImagePath();
-                                setStateDialog(() => imagePath = path);
+                                final picked = await _pickImage();
+                                setStateDialog(() => image = picked);
                               },
                               icon: const Icon(Icons.photo_library_outlined),
                               label: const Text('Choisir une image'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                                side: const BorderSide(color: Colors.white30),
+                                foregroundColor: Colors.black54,
+                                side: const BorderSide(color: Colors.black12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -812,15 +890,53 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      if (imagePath != null)
+                      DropdownButtonFormField<String>(
+                        value: typePersonnel,
+                        decoration: InputDecoration(
+                          labelText: 'Type cuisinier',
+                          labelStyle: const TextStyle(color: Colors.black54),
+                          filled: true,
+                          fillColor: Colors.black.withOpacity(0.04),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black12),
+                          ),
+                        ),
+                        dropdownColor: Colors.white,
+                        items: const [
+                          DropdownMenuItem(value: 'AUCUN', child: Text('Aucun')),
+                          DropdownMenuItem(
+                              value: 'CUISINIER_WOK',
+                              child: Text('Cuisinier Wok')),
+                          DropdownMenuItem(
+                              value: 'CUISINIER_SJS',
+                              child: Text('Cuisinier SJS')),
+                        ],
+                        onChanged: (v) => setStateDialog(() {
+                          typePersonnel = v ?? 'CUISINIER_WOK';
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      if (image != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            File(imagePath!),
-                            width: double.infinity,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
+                          child: kIsWeb
+                              ? Image.memory(
+                                  image!.bytes,
+                                  width: double.infinity,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(image!.path),
+                                  width: double.infinity,
+                                  height: 150,
+                                  fit: BoxFit.cover,
+                                ),
                         ),
 
                       // Disponibilité
@@ -828,19 +944,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.black.withOpacity(0.03),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white30),
+                          border: Border.all(color: Colors.black12),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.check_circle_outline,
-                                color: Colors.white70, size: 20),
+                                color: Colors.black54, size: 20),
                             const SizedBox(width: 12),
                             const Expanded(
                               child: Text(
                                 'Disponible',
-                                style: TextStyle(color: Colors.white70),
+                                style: TextStyle(color: Colors.black54),
                               ),
                             ),
                             Switch(
@@ -864,8 +980,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             child: OutlinedButton(
                               onPressed: () => Navigator.pop(ctx),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                                side: const BorderSide(color: Colors.white30),
+                                foregroundColor: Colors.black54,
+                                side: const BorderSide(color: Colors.black12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -881,7 +997,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               onPressed: () async {
                                 if (nameCtrl.text.isEmpty ||
                                     priceCtrl.text.isEmpty ||
-                                    imagePath == null) {
+                                    image == null) {
                                   ScaffoldMessenger.of(ctx).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -905,7 +1021,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   'description': descCtrl.text,
                                   'prix':
                                       double.tryParse(priceCtrl.text) ?? 0.0,
-                                  'photo_file_path': imagePath!,
+                                  'type_personnel': typePersonnel,
+                                  'photo_file_bytes': image!.bytes,
+                                  'photo_file_name': image!.name,
+                                  if (image!.mimeType != null)
+                                    'photo_mime_type': image!.mimeType,
                                   'categorie_id':
                                       catObj.id == 0 ? null : catObj.id,
                                   'actif': isAvailable ? 1 : 0,
@@ -933,6 +1053,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                                 'OUI',
                                     preparationTime: 20,
                                     categoryId: catObj.id == 0 ? null : catObj.id,
+                                    typePersonnel:
+                                        (map['type_personnel'] ?? typePersonnel)
+                                            ?.toString(),
                                   );
 
                                   setState(() {
@@ -1004,7 +1127,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF1B1D20),
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -1021,14 +1144,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     const Text(
                       'Détails du produit',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.black87,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: const Icon(Icons.close, color: Colors.black54),
                     ),
                   ],
                 ),
@@ -1046,7 +1169,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       child: Text(
                         product.name,
                         style: const TextStyle(
-                          color: Colors.white,
+                      color: Colors.black87,
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
                         ),
@@ -1095,12 +1218,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ),
                     const SizedBox(width: 16),
                     const Icon(Icons.timer_outlined,
-                        color: Colors.white70, size: 18),
+                        color: Colors.black54, size: 18),
                     const SizedBox(width: 8),
                     Text(
                       '${product.preparationTime} min',
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: Colors.black54,
                       ),
                     ),
                   ],
@@ -1111,7 +1234,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 const Text(
                   'Description',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: Colors.black54,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1120,7 +1243,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 Text(
                   product.description,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black87,
                     fontSize: 15,
                     height: 1.5,
                   ),
@@ -1215,24 +1338,29 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFF0F1113);
-    const cardBg = Color(0xFF1B1D20);
     const accentColor = Color(0xFFD43B3B);
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+              color: Colors.black54),
+          onPressed: () {
+            final nav = Navigator.of(context);
+            if (nav.canPop()) {
+              nav.pop();
+            } else {
+              nav.pushReplacementNamed('/home');
+            }
+          },
         ),
         title: Text(
           _selectedCategory == null ? 'Catalogue Produits' : _selectedCategory!,
-          style:
-              const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         actions: [
           if (_selectedCategory == null)
@@ -1262,12 +1390,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 if (_selectedCategory != null)
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     child: Row(
                       children: [
                         IconButton(
                           icon: const Icon(Icons.arrow_back_rounded,
-                              color: Colors.white70),
+                              color: Colors.black54),
                           onPressed: () {
                             setState(() {
                               _selectedCategory = null;
@@ -1275,9 +1403,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           },
                         ),
                         const SizedBox(width: 8),
-                        const Text(
+                        Text(
                           'Retour aux catégories',
-                          style: TextStyle(color: Colors.white70),
+                          style: text.bodyMedium?.copyWith(color: Colors.black54),
                         ),
                       ],
                     ),
@@ -1291,20 +1419,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               ],
             ),
+      bottomNavigationBar: const MainBottomNav(currentIndex: 1),
     );
   }
 
   Widget _buildCategoriesList() {
-    const cardBg = Color(0xFF1B1D20);
     const accentColor = Color(0xFFD43B3B);
+    final text = Theme.of(context).textTheme;
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.85,
+        crossAxisCount: 4,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        // childAspectRatio = width / height. Higher => shorter tiles.
+        childAspectRatio: 1.25,
       ),
       itemCount: _categories.length,
       itemBuilder: (context, index) {
@@ -1351,17 +1481,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
           },
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withOpacity(0.10),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               child: Stack(
                 children: [
                   // Image de fond
@@ -1369,7 +1499,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     category.imageUrl,
                     width: double.infinity,
                     height: double.infinity,
-                    radius: BorderRadius.circular(20),
+                    radius: BorderRadius.circular(16),
                   ),
 
                   // Overlay gradient
@@ -1392,7 +1522,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                   // Contenu
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(10),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1400,11 +1530,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         // Nom de la catégorie
                         Text(
                           category.name,
-                          style: const TextStyle(
+                          style: text.titleSmall?.copyWith(
                             color: Colors.white,
-                            fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            shadows: [
+                            fontSize: 14,
+                            shadows: const [
                               Shadow(
                                 color: Colors.black,
                                 blurRadius: 4,
@@ -1419,15 +1549,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         // Description
                         Text(
                           category.description,
-                          style: const TextStyle(
+                          style: text.bodySmall?.copyWith(
                             color: Colors.white70,
-                            fontSize: 12,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 2,
-                              ),
-                            ],
+                            fontSize: 11,
+                            shadows: const [Shadow(color: Colors.black, blurRadius: 2)],
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1438,17 +1563,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         // Nombre de produits
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             '$productCount ${productCount == 1 ? 'produit' : 'produits'}',
-                            style: const TextStyle(
+                            style: text.labelSmall?.copyWith(
                               color: Colors.white,
-                              fontSize: 11,
                               fontWeight: FontWeight.w600,
+                              fontSize: 9,
                             ),
                           ),
                         ),
@@ -1457,17 +1582,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
 
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 6,
+                    right: 6,
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.45),
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.white70, size: 20),
+                        icon: const Icon(Icons.edit, color: Colors.white70, size: 16),
                         onPressed: () => _showEditCategoryDialog(category),
                         tooltip: 'Modifier',
+                        padding: const EdgeInsets.all(6),
+                        constraints:
+                            const BoxConstraints(minWidth: 32, minHeight: 32),
                       ),
                     ),
                   ),
@@ -1483,7 +1611,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void _showEditCategoryDialog(Category category) {
     final nameCtrl = TextEditingController(text: category.name);
     final descCtrl = TextEditingController(text: category.description);
-    String? imagePath;
+    _PickedImage? image;
 
     showDialog(
       context: context,
@@ -1535,8 +1663,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            final path = await _pickImagePath();
-                            setStateDialog(() => imagePath = path);
+                            final picked = await _pickImage();
+                            setStateDialog(() => image = picked);
                           },
                           icon: const Icon(Icons.photo_library_outlined),
                           label: const Text('Changer l\'image'),
@@ -1553,15 +1681,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (imagePath != null)
+                  if (image != null)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        File(imagePath!),
-                        width: double.infinity,
-                        height: 150,
-                        fit: BoxFit.cover,
-                      ),
+                      child: kIsWeb
+                          ? Image.memory(
+                              image!.bytes,
+                              width: double.infinity,
+                              height: 150,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.file(
+                              File(image!.path),
+                              width: double.infinity,
+                              height: 150,
+                              fit: BoxFit.cover,
+                            ),
                     )
                   else
                     _imageBox(category.imageUrl, width: double.infinity, height: 150),
@@ -1581,18 +1716,25 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               try {
                                 final payload = {
                                   'nom': nameCtrl.text,
-                                  if (imagePath != null)
-                                    'photo_file_path': imagePath!,
+                                  if (image != null) ...{
+                                    'photo_file_bytes': image!.bytes,
+                                    'photo_file_name': image!.name,
+                                    if (image!.mimeType != null)
+                                      'photo_mime_type': image!.mimeType,
+                                  },
                                 };
                                 final res = await _api.updateCategory(
                                     category.id, payload);
+                                final rawPhoto =
+                                    (res['photo'] ?? '').toString().trim();
+                                final resolvedPhoto = rawPhoto.isNotEmpty
+                                    ? _resolveImageUrl(rawPhoto)
+                                    : category.imageUrl;
                                 final updatedCat = Category(
                                     id: category.id,
                                     name: res['nom'] ?? category.name,
                                     description: descCtrl.text,
-                                    imageUrl: _resolveImageUrl(
-                                      res['photo'] ?? category.imageUrl,
-                                    ),
+                                    imageUrl: resolvedPhoto,
                                     color: category.color);
                                 setState(() {
                                   final idx = _categories
@@ -1664,8 +1806,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Widget _buildProductsList() {
     final products = _productsByCategory[_selectedCategory] ?? [];
-    const cardBg = Color(0xFF1B1D20);
     const accentColor = Color(0xFFD43B3B);
+    final text = Theme.of(context).textTheme;
 
     return products.isEmpty
         ? Center(
@@ -1674,24 +1816,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
               children: [
                 Icon(
                   Icons.fastfood_outlined,
-                  size: 80,
-                  color: Colors.white.withOpacity(0.3),
+                  size: 72,
+                  color: Colors.black.withOpacity(0.25),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Aucun plat dans cette catégorie',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                  ),
+                  style: text.bodyLarge?.copyWith(color: Colors.black54),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Ajoutez le premier plat à "$_selectedCategory"',
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 14,
-                  ),
+                  style: text.bodyMedium?.copyWith(color: Colors.black45),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -1712,7 +1848,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
           )
         : ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(8),
             itemCount: products.length,
             itemBuilder: (context, index) {
               final product = products[index];
@@ -1722,19 +1858,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildProductCard(Product product) {
-    const cardBg = Color(0xFF1B1D20);
     const accentColor = Color(0xFFD43B3B);
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -1744,18 +1881,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
           // Image du produit
           _imageBox(
             product.imageUrl,
-            width: 120,
-            height: 120,
+            width: 44,
+            height: 44,
             radius: const BorderRadius.only(
-              topLeft: Radius.circular(16),
-              bottomLeft: Radius.circular(16),
+              topLeft: Radius.circular(10),
+              bottomLeft: Radius.circular(10),
             ),
           ),
 
           // Infos du produit
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1765,10 +1902,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       Expanded(
                         child: Text(
                           product.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
+                          style: text.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
+                            fontSize: 13,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1776,7 +1912,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: product.isAvailable
                               ? Colors.green.withOpacity(0.15)
@@ -1795,44 +1931,48 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     product.description,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
+                    style: text.bodySmall?.copyWith(
+                      color: Colors.black54,
+                      height: 1.15,
+                      fontSize: 11,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 5),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 6),
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: accentColor,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           '${product.price.toStringAsFixed(2)} MAD',
-                          style: const TextStyle(
+                          style: text.labelLarge?.copyWith(
                             color: Colors.white,
-                            fontSize: 16,
                             fontWeight: FontWeight.w700,
+                            fontSize: 12,
                           ),
                         ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.more_vert_rounded,
-                            color: Colors.white70),
+                            color: Colors.black54, size: 18),
                         onPressed: () => _showProductDetails(product),
+                        visualDensity: VisualDensity.compact,
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.white70),
+                        icon: const Icon(Icons.edit,
+                            color: Colors.black54, size: 18),
                         onPressed: () => _showEditProductDialog(product),
+                        visualDensity: VisualDensity.compact,
                       ),
                     ],
                   ),
@@ -1872,6 +2012,7 @@ class Product {
   final bool isAvailable;
   final int preparationTime;
   final int? categoryId;
+  final String? typePersonnel;
 
   Product({
     required this.id,
@@ -1882,5 +2023,6 @@ class Product {
     required this.isAvailable,
     required this.preparationTime,
     this.categoryId,
+    this.typePersonnel,
   });
 }

@@ -36,23 +36,30 @@ class _ChargesScreenState extends State<ChargesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1113),
+      backgroundColor: const Color(0xFFF6F7F9),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () {
+            final nav = Navigator.of(context);
+            if (nav.canPop()) {
+              nav.pop();
+            } else {
+              nav.pushReplacementNamed('/home');
+            }
+          },
         ),
         title: const Text(
           'Charges & Dépenses',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
         ),
         actions: [
           // Filtre période
           PopupMenuButton<String>(
             icon: const Icon(Icons.calendar_month, color: Color(0xFFD43B3B)),
-            color: const Color(0xFF1B1D20),
+            color: Colors.white,
             onSelected: (value) {
               setState(() => _periodFilter = value);
               // reload data from server for selected period
@@ -64,7 +71,9 @@ class _ChargesScreenState extends State<ChargesScreen> {
                 child: Text(
                   period,
                   style: TextStyle(
-                    color: _periodFilter == period ? const Color(0xFFD43B3B) : Colors.white,
+                    color: _periodFilter == period
+                        ? const Color(0xFFD43B3B)
+                        : Colors.black87,
                     fontWeight: _periodFilter == period ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -151,22 +160,30 @@ class _ChargesScreenState extends State<ChargesScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: TextField(
         onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: Colors.black87),
         decoration: InputDecoration(
           hintText: 'Rechercher une charge...',
-          hintStyle: const TextStyle(color: Colors.white54),
-          prefixIcon: const Icon(Icons.search, color: Colors.white54),
+          hintStyle: const TextStyle(color: Colors.black45),
+          prefixIcon: const Icon(Icons.search, color: Colors.black45),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.white54),
+                  icon: const Icon(Icons.clear, color: Colors.black45),
                   onPressed: () => setState(() => _searchQuery = ''),
                 )
               : null,
           filled: true,
-          fillColor: const Color(0xFF1B1D20),
+          fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30),
-            borderSide: BorderSide.none,
+            borderSide: const BorderSide(color: Colors.black12),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: Colors.black12),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: Color(0xFFD43B3B), width: 1.5),
           ),
         ),
       ),
@@ -178,8 +195,9 @@ class _ChargesScreenState extends State<ChargesScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.black12),
       ),
       child: Row(
         children: [
@@ -204,12 +222,12 @@ class _ChargesScreenState extends State<ChargesScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: isSelected ? Colors.white : Colors.white70, size: 18),
+              Icon(icon, color: isSelected ? Colors.white : Colors.black54, size: 18),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color: isSelected ? Colors.white : Colors.black54,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   fontSize: 13,
                 ),
@@ -251,7 +269,7 @@ class _ChargesScreenState extends State<ChargesScreen> {
               Text(
                 _periodFilter,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black87,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -325,7 +343,7 @@ class _ChargesScreenState extends State<ChargesScreen> {
           // Graphique des catégories (simulé)
           const Text(
             'Répartition par catégorie',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
           ...List.generate(
@@ -351,7 +369,7 @@ class _ChargesScreenState extends State<ChargesScreen> {
             children: [
               const Text(
                 'Dernières charges',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w600),
               ),
               TextButton(
                 onPressed: () => setState(() => _selectedIndex = 1),
@@ -376,8 +394,9 @@ class _ChargesScreenState extends State<ChargesScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,7 +415,7 @@ class _ChargesScreenState extends State<ChargesScreen> {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: const TextStyle(color: Colors.black87, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -407,7 +426,7 @@ class _ChargesScreenState extends State<ChargesScreen> {
           Text(
             value,
             style: TextStyle(
-              color: color,
+              color: Colors.black87,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -426,10 +445,10 @@ class _ChargesScreenState extends State<ChargesScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+              Text(name, style: const TextStyle(color: Colors.black87, fontSize: 14)),
               Text(
                 '${amount.toStringAsFixed(2)} €',
-                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                style: const TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -441,7 +460,7 @@ class _ChargesScreenState extends State<ChargesScreen> {
                   borderRadius: BorderRadius.circular(10),
                   child: LinearProgressIndicator(
                     value: ((percentage.isFinite ? (percentage / 100) : 0.0).clamp(0.0, 1.0)) as double,
-                    backgroundColor: Colors.white.withOpacity(0.1),
+                    backgroundColor: Colors.black.withOpacity(0.08),
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                     minHeight: 8,
                   ),
@@ -469,8 +488,9 @@ class _ChargesScreenState extends State<ChargesScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12),
       ),
       child: Row(
         children: [
@@ -478,7 +498,7 @@ class _ChargesScreenState extends State<ChargesScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.white12,
+              color: Colors.black.withOpacity(0.06),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(_getCategorieIcon(cat.id), color: _getCategorieColor(cat.id), size: 20),
@@ -490,18 +510,18 @@ class _ChargesScreenState extends State<ChargesScreen> {
               children: [
                 Text(
                   charge.titre,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
                     Text(
                       cat.nom,
-                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      style: const TextStyle(color: Colors.black54, fontSize: 11),
                     ),
                     Text(
                       ' • ${_formatDate(charge.date_charge)}',
-                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      style: const TextStyle(color: Colors.black54, fontSize: 11),
                     ),
                   ],
                 ),

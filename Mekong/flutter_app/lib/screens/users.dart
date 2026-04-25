@@ -19,7 +19,14 @@ class _UsersScreenState extends State<UsersScreen> {
   String _filterRole = 'Tous';
 
   // Roles defined by backend / requested
-  final List<String> _roles = ['CAISSIER', 'ADMIN', 'LIVREUR', 'CUISINIER', 'SERVEUR'];
+  final List<String> _roles = [
+    'CAISSIER',
+    'ADMIN',
+    'LIVREUR',
+    'CUISINIER_SJS',
+    'CUISINIER_WOK',
+    'SERVEUR',
+  ];
 
   @override
   void initState() {
@@ -80,17 +87,18 @@ class _UsersScreenState extends State<UsersScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF1B1D20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: const Color(0xFF1B1D20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -264,9 +272,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
                     style: const TextStyle(color: Colors.white),
                     onChanged: (String? newValue) {
-                      setState(() {
-                        selectedRole = newValue;
-                      });
+                      setDialogState(() => selectedRole = newValue);
                     },
                     items: _roles
                         .map<DropdownMenuItem<String>>((String value) {
@@ -301,6 +307,27 @@ class _UsersScreenState extends State<UsersScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
+                        final nom = nameCtrl.text.trim();
+                        final newEmail = emailCtrl.text.trim();
+                        final newPass = passwordCtrl.text.trim();
+                        if (nom.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Nom (username) obligatoire')),
+                          );
+                          return;
+                        }
+                        if (newEmail.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Email obligatoire')),
+                          );
+                          return;
+                        }
+                        if (newPass.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Mot de passe obligatoire')),
+                          );
+                          return;
+                        }
                         final prefs = await SharedPreferences.getInstance();
                         final email = prefs.getString('auth_email') ?? '';
                         final password = prefs.getString('auth_password') ?? '';
@@ -313,11 +340,11 @@ class _UsersScreenState extends State<UsersScreen> {
                         final api = ApiService();
                         final numeroId = int.tryParse(numeroCtrl.text.trim());
                         final Map<String, dynamic> payload = {
-                          'nom': nameCtrl.text,
-                          'email': emailCtrl.text,
-                          'telephone': phoneCtrl.text,
+                          'nom': nom,
+                          'email': newEmail,
+                          'telephone': phoneCtrl.text.trim(),
                           'role': selectedRole ?? 'SERVEUR',
-                          'mot_de_passe': passwordCtrl.text,
+                          'mot_de_passe': newPass,
                         };
                         if (numeroId != null) {
                           payload['numero_id'] = numeroId;
@@ -366,7 +393,8 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                 ],
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -499,17 +527,18 @@ class _UsersScreenState extends State<UsersScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF1B1D20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: const Color(0xFF1B1D20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -651,9 +680,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
                     style: const TextStyle(color: Colors.white),
                     onChanged: (String? newValue) {
-                      setState(() {
-                        selectedRole = newValue;
-                      });
+                      setDialogState(() => selectedRole = newValue);
                     },
                     items: _roles
                         .map<DropdownMenuItem<String>>((String value) {
@@ -783,7 +810,8 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                 ],
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -863,8 +891,8 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFF0F1113);
-    const cardBg = Color(0xFF1B1D20);
+    const bg = Color(0xFFF7F7FB);
+    const cardBg = Colors.white;
     const accentColor = Color(0xFFD43B3B);
 
     // Totaux: compute case-insensitive counts
@@ -877,12 +905,19 @@ class _UsersScreenState extends State<UsersScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black54),
+          onPressed: () {
+            final nav = Navigator.of(context);
+            if (nav.canPop()) {
+              nav.pop();
+            } else {
+              nav.pushReplacementNamed('/home');
+            }
+          },
         ),
         title: const Text(
           'Gestion des Utilisateurs',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
         ),
         actions: [
           IconButton(
@@ -909,6 +944,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     decoration: BoxDecoration(
                       color: cardBg,
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black12),
                     ),
                     child: Column(
                       children: [
@@ -918,25 +954,26 @@ class _UsersScreenState extends State<UsersScreen> {
                             setState(() => _searchQuery = value);
                             _filterUsers();
                           },
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.black87),
                           decoration: InputDecoration(
                             hintText: 'Rechercher un utilisateur...',
-                            hintStyle: const TextStyle(color: Colors.white30),
-                            prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                            hintStyle: const TextStyle(color: Colors.black38),
+                            prefixIcon:
+                                const Icon(Icons.search, color: Colors.black54),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Colors.white30),
+                              borderSide: const BorderSide(color: Colors.black12),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Colors.white30),
+                              borderSide: const BorderSide(color: Colors.black12),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(color: accentColor, width: 2),
                             ),
                             filled: true,
-                            fillColor: Colors.white.withOpacity(0.05),
+                            fillColor: Colors.black.withOpacity(0.04),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -948,17 +985,18 @@ class _UsersScreenState extends State<UsersScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
+                                  color: Colors.black.withOpacity(0.04),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white30),
+                                  border: Border.all(color: Colors.black12),
                                 ),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<String>(
                                     value: _filterRole,
                                     isExpanded: true,
-                                    dropdownColor: cardBg,
-                                    icon: const Icon(Icons.filter_list, color: Colors.white70),
-                                    style: const TextStyle(color: Colors.white),
+                                    dropdownColor: Colors.white,
+                                    icon: const Icon(Icons.filter_list,
+                                        color: Colors.black54),
+                                    style: const TextStyle(color: Colors.black87),
                                     onChanged: (String? newValue) {
                                       setState(() {
                                         _filterRole = newValue!;
@@ -980,12 +1018,13 @@ class _UsersScreenState extends State<UsersScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
+                                color: Colors.black.withOpacity(0.04),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white30),
+                                border: Border.all(color: Colors.black12),
                               ),
                               child: IconButton(
-                                icon: const Icon(Icons.refresh, color: Colors.white70),
+                                icon: const Icon(Icons.refresh,
+                                    color: Colors.black54),
                                 onPressed: _loadUsers,
                                 tooltip: 'Actualiser',
                               ),
@@ -1005,6 +1044,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     decoration: BoxDecoration(
                       color: cardBg,
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black12),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1027,13 +1067,13 @@ class _UsersScreenState extends State<UsersScreen> {
                               Icon(
                                 Icons.people_outline,
                                 size: 80,
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.black.withOpacity(0.25),
                               ),
                               const SizedBox(height: 16),
                               const Text(
                                 'Aucun utilisateur trouvé',
                                 style: TextStyle(
-                                  color: Colors.white70,
+                                  color: Colors.black54,
                                   fontSize: 16,
                                 ),
                               ),
@@ -1074,7 +1114,7 @@ class _UsersScreenState extends State<UsersScreen> {
         Text(
           value,
           style: const TextStyle(
-            color: Colors.white,
+            color: Colors.black87,
             fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
@@ -1083,7 +1123,7 @@ class _UsersScreenState extends State<UsersScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: Colors.white70,
+            color: Colors.black54,
             fontSize: 12,
           ),
         ),
@@ -1105,7 +1145,8 @@ class _UsersScreenState extends State<UsersScreen> {
       case 'caissier':
         roleColor = Colors.greenAccent;
         break;
-      case 'cuisinier':
+      case 'cuisinier_sjs':
+      case 'cuisinier_wok':
         roleColor = Colors.blueAccent;
         break;
       case 'livreur':
@@ -1119,11 +1160,12 @@ class _UsersScreenState extends State<UsersScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1155,7 +1197,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 Text(
                   user.name ?? 'Nom non spécifié',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black87,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1164,7 +1206,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 Text(
                   user.email ?? 'Email non spécifié',
                   style: const TextStyle(
-                    color: Colors.white70,
+                    color: Colors.black54,
                     fontSize: 13,
                   ),
                 ),
@@ -1190,15 +1232,15 @@ class _UsersScreenState extends State<UsersScreen> {
 
           // Actions
           PopupMenuButton(
-            color: const Color(0xFF1B1D20),
+            color: Colors.white,
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'view',
                 child: Row(
                   children: [
-                    Icon(Icons.visibility_outlined, color: Colors.white70, size: 20),
+                    Icon(Icons.visibility_outlined, color: Colors.black54, size: 20),
                     SizedBox(width: 8),
-                    Text('Voir détails', style: TextStyle(color: Colors.white)),
+                    Text('Voir détails', style: TextStyle(color: Colors.black87)),
                   ],
                 ),
               ),
@@ -1206,9 +1248,9 @@ class _UsersScreenState extends State<UsersScreen> {
                 value: 'edit',
                 child: Row(
                   children: [
-                    Icon(Icons.edit_outlined, color: Colors.white70, size: 20),
+                    Icon(Icons.edit_outlined, color: Colors.black54, size: 20),
                     SizedBox(width: 8),
-                    Text('Modifier', style: TextStyle(color: Colors.white)),
+                    Text('Modifier', style: TextStyle(color: Colors.black87)),
                   ],
                 ),
               ),
@@ -1239,12 +1281,12 @@ class _UsersScreenState extends State<UsersScreen> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.black.withOpacity(0.04),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.more_vert_rounded,
-                color: Colors.white70,
+                color: Colors.black54,
                 size: 20,
               ),
             ),

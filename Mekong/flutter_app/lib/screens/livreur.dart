@@ -167,18 +167,18 @@ class _LivreurScreenState extends State<LivreurScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1113),
+      backgroundColor: const Color(0xFFF6F7F9),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: const Text(
           'Livraisons',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70),
+            icon: const Icon(Icons.refresh, color: Colors.black54),
             onPressed: _loadOrders,
           ),
         ],
@@ -207,22 +207,16 @@ class _LivreurScreenState extends State<LivreurScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: Colors.black12),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
             tooltip: 'Compte',
-            icon: const Icon(Icons.account_circle, color: Colors.white70, size: 26),
+            icon: const Icon(Icons.account_circle, color: Colors.black54, size: 26),
             onPressed: () => Navigator.of(context).pushNamed('/profile'),
           ),
           IconButton(
@@ -268,16 +262,16 @@ class _LivreurScreenState extends State<LivreurScreen> {
       label: Text(
         label,
         style: TextStyle(
-          color: selected ? Colors.white : Colors.white70,
+          color: selected ? Colors.white : Colors.black87,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
         ),
       ),
       selected: selected,
       onSelected: (_) => setState(() => _filter = value),
-      backgroundColor: const Color(0xFF23262B),
+      backgroundColor: Colors.white,
       selectedColor: const Color(0xFFD43B3B),
       side: BorderSide(
-        color: selected ? const Color(0xFFD43B3B) : Colors.white30,
+        color: selected ? const Color(0xFFD43B3B) : Colors.black12,
         width: selected ? 1.6 : 1,
       ),
     );
@@ -292,7 +286,7 @@ class _LivreurScreenState extends State<LivreurScreen> {
           Center(
             child: Text(
               'Aucune livraison disponible',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: Colors.black54),
             ),
           ),
         ],
@@ -317,9 +311,9 @@ class _LivreurScreenState extends State<LivreurScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: Colors.black12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,7 +334,7 @@ class _LivreurScreenState extends State<LivreurScreen> {
               const Spacer(),
               Text(
                 '#${order.id}',
-                style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+                style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -349,12 +343,12 @@ class _LivreurScreenState extends State<LivreurScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.location_on, color: Colors.white54, size: 16),
+                const Icon(Icons.location_on, color: Colors.black45, size: 16),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     order.adresse,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    style: const TextStyle(color: Colors.black87, fontSize: 13),
                   ),
                 ),
               ],
@@ -363,11 +357,11 @@ class _LivreurScreenState extends State<LivreurScreen> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.phone, color: Colors.white54, size: 16),
+                const Icon(Icons.phone, color: Colors.black45, size: 16),
                 const SizedBox(width: 6),
                 Text(
                   order.telephone,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  style: const TextStyle(color: Colors.black87, fontSize: 13),
                 ),
               ],
             ),
@@ -381,8 +375,8 @@ class _LivreurScreenState extends State<LivreurScreen> {
                   icon: const Icon(Icons.call, size: 18),
                   label: const Text('Appeler'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: Colors.white30),
+                    foregroundColor: Colors.black87,
+                    side: const BorderSide(color: Colors.black12),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),

@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../models/dashboard.dart';
@@ -229,8 +232,19 @@ class ApiService {
       Map<String, dynamic> payload) async {
     final uri = Uri.parse('$baseUrl/categories_produits');
     final filePath = payload.remove('photo_file_path')?.toString();
-    if (filePath != null && filePath.isNotEmpty) {
-      return _multipartWithFile(uri, payload, filePath, method: 'POST');
+    final fileBytes = _extractFileBytes(payload.remove('photo_file_bytes'));
+    final fileName = payload.remove('photo_file_name')?.toString();
+    final mimeType = payload.remove('photo_mime_type')?.toString();
+    if (_hasFileUpload(filePath, fileBytes)) {
+      return _multipartWithFile(
+        uri,
+        payload,
+        filePath: filePath,
+        fileBytes: fileBytes,
+        fileName: fileName,
+        mimeType: mimeType,
+        method: 'POST',
+      );
     }
     final res = await http.post(uri,
         headers: await _jsonAuthHeaders(),
@@ -244,8 +258,19 @@ class ApiService {
       int id, Map<String, dynamic> payload) async {
     final uri = Uri.parse('$baseUrl/categories_produits/$id');
     final filePath = payload.remove('photo_file_path')?.toString();
-    if (filePath != null && filePath.isNotEmpty) {
-      return _multipartWithFile(uri, payload, filePath, method: 'PUT');
+    final fileBytes = _extractFileBytes(payload.remove('photo_file_bytes'));
+    final fileName = payload.remove('photo_file_name')?.toString();
+    final mimeType = payload.remove('photo_mime_type')?.toString();
+    if (_hasFileUpload(filePath, fileBytes)) {
+      return _multipartWithFile(
+        uri,
+        payload,
+        filePath: filePath,
+        fileBytes: fileBytes,
+        fileName: fileName,
+        mimeType: mimeType,
+        method: 'PUT',
+      );
     }
     final res = await http.put(uri,
         headers: await _jsonAuthHeaders(),
@@ -267,8 +292,19 @@ class ApiService {
       Map<String, dynamic> payload) async {
     final uri = Uri.parse('$baseUrl/produits');
     final filePath = payload.remove('photo_file_path')?.toString();
-    if (filePath != null && filePath.isNotEmpty) {
-      return _multipartWithFile(uri, payload, filePath, method: 'POST');
+    final fileBytes = _extractFileBytes(payload.remove('photo_file_bytes'));
+    final fileName = payload.remove('photo_file_name')?.toString();
+    final mimeType = payload.remove('photo_mime_type')?.toString();
+    if (_hasFileUpload(filePath, fileBytes)) {
+      return _multipartWithFile(
+        uri,
+        payload,
+        filePath: filePath,
+        fileBytes: fileBytes,
+        fileName: fileName,
+        mimeType: mimeType,
+        method: 'POST',
+      );
     }
     final res = await http.post(uri,
         headers: await _jsonAuthHeaders(),
@@ -283,8 +319,19 @@ class ApiService {
       int id, Map<String, dynamic> payload) async {
     final uri = Uri.parse('$baseUrl/produits/$id');
     final filePath = payload.remove('photo_file_path')?.toString();
-    if (filePath != null && filePath.isNotEmpty) {
-      return _multipartWithFile(uri, payload, filePath, method: 'PUT');
+    final fileBytes = _extractFileBytes(payload.remove('photo_file_bytes'));
+    final fileName = payload.remove('photo_file_name')?.toString();
+    final mimeType = payload.remove('photo_mime_type')?.toString();
+    if (_hasFileUpload(filePath, fileBytes)) {
+      return _multipartWithFile(
+        uri,
+        payload,
+        filePath: filePath,
+        fileBytes: fileBytes,
+        fileName: fileName,
+        mimeType: mimeType,
+        method: 'PUT',
+      );
     }
     final res = await http.put(uri,
         headers: await _jsonAuthHeaders(),
@@ -297,9 +344,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> _multipartWithFile(
     Uri uri,
-    Map<String, dynamic> payload,
-    String filePath, {
+    Map<String, dynamic> payload, {
     required String method,
+    String? filePath,
+    Uint8List? fileBytes,
+    String? fileName,
+    String? mimeType,
   }) async {
     final req = http.MultipartRequest('POST', uri);
     final headers = await _basicAuthHeaders();
@@ -311,13 +361,52 @@ class ApiService {
       if (value == null) return;
       req.fields[key] = value.toString();
     });
-    req.files.add(await http.MultipartFile.fromPath('photo_file', filePath));
+    final hasBytes = fileBytes != null && fileBytes.isNotEmpty;
+    final hasPath = filePath != null && filePath.isNotEmpty;
+    if (hasBytes) {
+      final MediaType? contentType = _parseMediaType(mimeType);
+      req.files.add(
+        http.MultipartFile.fromBytes(
+          'photo_file',
+          fileBytes!,
+          filename: (fileName == null || fileName.isEmpty) ? 'upload.jpg' : fileName,
+          contentType: contentType,
+        ),
+      );
+    } else if (hasPath) {
+      if (kIsWeb) {
+        throw Exception('Web upload requires file bytes, not file paths.');
+      }
+      req.files.add(await http.MultipartFile.fromPath('photo_file', filePath!));
+    }
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
     if (res.statusCode == 200 || res.statusCode == 201) {
       return json.decode(res.body) as Map<String, dynamic>;
     }
     throw Exception('Request failed: ${res.statusCode} ${res.body}');
+  }
+
+  bool _hasFileUpload(String? filePath, Uint8List? fileBytes) {
+    final hasBytes = fileBytes != null && fileBytes.isNotEmpty;
+    final hasPath = filePath != null && filePath.isNotEmpty;
+    return hasBytes || hasPath;
+  }
+
+  Uint8List? _extractFileBytes(dynamic value) {
+    if (value == null) return null;
+    if (value is Uint8List) return value;
+    if (value is List<int>) return Uint8List.fromList(value);
+    return null;
+  }
+
+  MediaType? _parseMediaType(String? mimeType) {
+    if (mimeType == null || mimeType.trim().isEmpty) return null;
+    try {
+      return MediaType.parse(mimeType);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> deleteProduct(int id) async {
@@ -338,6 +427,26 @@ class ApiService {
       return body;
     }
     throw Exception('Failed to load tables: ${res.statusCode} ${res.body}');
+  }
+
+  /// Notify kitchen that an item was cancelled (serveur decremented quantity).
+  Future<void> notifyKitchenItemCancelled(Map<String, dynamic> payload) async {
+    final uri = Uri.parse('$baseUrl/kitchen/cancel');
+    final res = await http.post(uri,
+        headers: await _jsonAuthHeaders(),
+        body: json.encode(payload));
+    if (res.statusCode == 200) return;
+    throw Exception('Failed to notify kitchen cancel: ${res.statusCode} ${res.body}');
+  }
+
+  /// Notify kitchen that an item was added (serveur incremented quantity).
+  Future<void> notifyKitchenItemAdded(Map<String, dynamic> payload) async {
+    final uri = Uri.parse('$baseUrl/kitchen/add');
+    final res = await http.post(uri,
+        headers: await _jsonAuthHeaders(),
+        body: json.encode(payload));
+    if (res.statusCode == 200) return;
+    throw Exception('Failed to notify kitchen add: ${res.statusCode} ${res.body}');
   }
 
   // Charges endpoints
@@ -498,35 +607,6 @@ class ApiService {
         body: json.encode(payload));
     if (res.statusCode == 201) return json.decode(res.body) as Map<String, dynamic>;
     throw Exception('Failed to create commande: ${res.statusCode} ${res.body}');
-  }
-
-  // Commandes serveur (tables)
-  Future<Map<String, dynamic>> createCommandeServeur(Map<String, dynamic> payload) async {
-    final uri = Uri.parse('$baseUrl/commande_serveur');
-    final res = await http.post(uri,
-        headers: await _jsonAuthHeaders(),
-        body: json.encode(payload));
-    if (res.statusCode == 201) return json.decode(res.body) as Map<String, dynamic>;
-    throw Exception('Failed to create commande serveur: ${res.statusCode} ${res.body}');
-  }
-
-  Future<List<dynamic>> fetchCommandeServeurList() async {
-    final uri = Uri.parse('$baseUrl/commande_serveur');
-    final res = await http.get(uri, headers: await _basicAuthHeaders());
-    if (res.statusCode == 200) {
-      final body = json.decode(res.body);
-      if (body is List) return body;
-      if (body is Map<String, dynamic>) {
-        final data = body['data'];
-        if (data is List) return data;
-      }
-      if (body is Map) {
-        final data = body['data'];
-        if (data is List) return data;
-      }
-      return <dynamic>[];
-    }
-    throw Exception('Failed to load commande_serveur: ${res.statusCode} ${res.body}');
   }
 
   Future<int> fetchUnreadNotificationsCount() async {

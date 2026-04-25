@@ -11,22 +11,50 @@ class SalesPoint {
 class RecentOrder {
   final int id;
   final String? clientNom;
+  /// SUR_PLACE, LIVRAISON, or `serveur` for legacy commande_serveur rows.
+  final String? type;
   final String statut;
   final double total;
   final String date;
-  RecentOrder({required this.id, this.clientNom, required this.statut, required this.total, required this.date});
+
+  RecentOrder({
+    required this.id,
+    this.clientNom,
+    this.type,
+    required this.statut,
+    required this.total,
+    required this.date,
+  });
+
+  /// Shown in dashboard list when [clientNom] is empty (typical for POS / sur place).
+  String get displayTitle {
+    final n = clientNom?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    final t = (type ?? '').toUpperCase();
+    if (t == 'LIVRAISON') return 'Livraison';
+    if (t == 'SUR_PLACE') return 'Sur place';
+    if (t == 'SERVEUR') return 'Commande serveur';
+    return 'Commande #$id';
+  }
+
   factory RecentOrder.fromJson(Map<String, dynamic> j) => RecentOrder(
-    id: j['id'] as int,
-    clientNom: j['client_nom'] as String?,
-    statut: j['statut'] as String,
-    total: (() {
-      final t = j['total'];
-      if (t is num) return t.toDouble();
-      if (t is String) return double.tryParse(t) ?? 0.0;
-      return 0.0;
-    })(),
-    date: (j['date_commande'] as String),
-  );
+        id: () {
+          final v = j['id'];
+          if (v is int) return v;
+          if (v is num) return v.toInt();
+          return int.tryParse('$v') ?? 0;
+        }(),
+        clientNom: j['client_nom'] as String?,
+        type: j['type'] as String?,
+        statut: (j['statut'] ?? '').toString(),
+        total: (() {
+          final t = j['total'];
+          if (t is num) return t.toDouble();
+          if (t is String) return double.tryParse(t) ?? 0.0;
+          return 0.0;
+        })(),
+        date: (j['date_commande'] ?? '').toString(),
+      );
 }
 
 class WeekDaySale {

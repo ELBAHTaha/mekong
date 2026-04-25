@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../models/user.dart';
 import '../models/dashboard.dart';
+import '../widgets/main_bottom_nav.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -30,8 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showChart = false;
 
   // Déplacer les constantes de couleur au niveau de la classe
-  static const Color bg = Color(0xFF0F1113);
-  static const Color cardBg = Color(0xFF1B1D20);
+  static const Color bg = Color(0xFFF7F7FB);
+  static const Color cardBg = Colors.white;
   static const Color accentColor = Color(0xFFFF7A18);
   static const Color successColor = Color(0xFF2ECC71);
   static const Color warningColor = Color(0xFFF39C12);
@@ -53,7 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Color _statutColor(String statut) {
     final s = (statut ?? '').toString().toUpperCase();
     if (s.contains('ANNU')) return Colors.redAccent;
-    if (s.contains('LIVREE') || s.contains('TERM')) return const Color(0xFF3498DB);
+    if (s.contains('LIVREE') || s.contains('TERM'))
+      return const Color(0xFF3498DB);
     if (s.contains('LIVRAISON') || s.contains('PRETE')) return successColor;
     return warningColor;
   }
@@ -119,8 +121,8 @@ class _HomeScreenState extends State<HomeScreen> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF1B1D20).withOpacity(0.95),
-                const Color(0xFF0F1113),
+                Colors.white.withOpacity(0.96),
+                bg,
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -130,11 +132,11 @@ class _HomeScreenState extends State<HomeScreen> {
         leading: Padding(
           padding: const EdgeInsets.only(left: 16),
           child: CircleAvatar(
-            backgroundColor: const Color(0xFF26282C),
+            backgroundColor: Colors.white,
             child: Text(
               _user?.name?.substring(0, 1).toUpperCase() ?? 'U',
               style: const TextStyle(
-                color: Colors.white,
+                color: Colors.black87,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -146,14 +148,14 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'Bonjour,',
               style: TextStyle(
-                color: Colors.white70,
+                color: Colors.black54,
                 fontSize: 12,
               ),
             ),
             Text(
               _user?.name?.split(' ').first ?? 'Utilisateur',
               style: const TextStyle(
-                color: Colors.white,
+                color: Colors.black87,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -169,12 +171,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF26282C),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.notifications_outlined,
-                        color: Colors.white70),
+                        color: Colors.black54),
                     onPressed: () {},
                   ),
                 ),
@@ -223,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text(
                           _getCurrentDate(),
                           style: const TextStyle(
-                            color: Colors.white70,
+                            color: Colors.black54,
                             fontSize: 14,
                           ),
                         ),
@@ -262,24 +264,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       duration: const Duration(milliseconds: 500),
                       offset: _showMetrics ? Offset.zero : const Offset(0, 0.2),
                       child: GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 1.2,
+                        // childAspectRatio = width / height. Higher => shorter cards.
+                        childAspectRatio: 1.35,
                         children: [
                           _buildMetricCard(
                             icon: Icons.trending_up_rounded,
                             title: 'Ventes du Jour',
-                            value: 'MAD ${_dashboard?.ventesDuJour.toStringAsFixed(0) ?? "0"}',
+                            value:
+                                'MAD ${_dashboard?.ventesDuJour.toStringAsFixed(0) ?? "0"}',
                             color: successColor,
                             trend: '+12%',
                           ),
                           _buildMetricCard(
                             icon: Icons.attach_money_rounded,
                             title: 'Revenus Totaux',
-                            value: 'MAD ${_dashboard?.commandesMontant.toStringAsFixed(0) ?? "0"}',
+                            value:
+                                'MAD ${_dashboard?.commandesMontant.toStringAsFixed(0) ?? "0"}',
                             color: accentColor,
                             trend: '+8%',
                           ),
@@ -312,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const Text(
                     'Actions Rapides',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.black87,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                     ),
@@ -325,12 +330,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       duration: const Duration(milliseconds: 500),
                       offset: _showActions ? Offset.zero : const Offset(0, 0.2),
                       child: GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
+                        crossAxisCount: 4,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 1.5,
+                        childAspectRatio: 1.25,
                         children: [
                           _buildActionCard(
                             icon: Icons.shopping_bag_rounded,
@@ -369,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Text(
                         'Commandes Récentes',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Colors.black87,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                         ),
@@ -414,28 +419,30 @@ class _HomeScreenState extends State<HomeScreen> {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF26282C),
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.black12),
                               ),
                               child: const Center(
                                 child: Text(
                                   'Aucune commande récente',
-                                  style: TextStyle(color: Colors.white70),
+                                  style: TextStyle(color: Colors.black54),
                                 ),
                               ),
                             )
-                          else ...[for (var o in (_dashboard?.commandesRecent ?? []).take(3))
-                            ...[
+                          else ...[
+                            for (var o in (_dashboard?.commandesRecent ?? [])
+                                .take(3)) ...[
                               _buildOrderItem(
                                 orderId: '#${o.id}',
-                                customer: o.clientNom ?? '—',
+                                customer: o.displayTitle,
                                 amount: o.total,
                                 status: o.statut,
                                 statusColor: _statutColor(o.statut),
-                                time: (){
+                                time: () {
                                   try {
                                     final dt = DateTime.parse(o.date).toLocal();
-                                    return '${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}';
+                                    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
                                   } catch (_) {
                                     return o.date;
                                   }
@@ -457,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Text(
                         'Ventes Mensuelles',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Colors.black87,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                         ),
@@ -466,15 +473,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           IconButton(
                             onPressed: () => _prevMonth(),
-                            icon: Icon(Icons.chevron_left, color: Colors.white70),
+                            icon:
+                                const Icon(Icons.chevron_left, color: Colors.black54),
                           ),
                           Text(
                             _getMonthLabel(_currentYear, _currentMonth),
-                            style: const TextStyle(color: Colors.white70),
+                            style: const TextStyle(color: Colors.black54),
                           ),
                           IconButton(
                             onPressed: () => _nextMonth(),
-                            icon: Icon(Icons.chevron_right, color: Colors.white70),
+                            icon: const Icon(Icons.chevron_right, color: Colors.black54),
                           ),
                         ],
                       ),
@@ -492,9 +500,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           color: cardBg,
                           borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.black12),
                         ),
                         child: _loadingMois
-                            ? SizedBox(height: 120, child: Center(child: CircularProgressIndicator(color: accentColor)))
+                            ? SizedBox(
+                                height: 120,
+                                child: Center(
+                                    child: CircularProgressIndicator(
+                                        color: accentColor)))
                             : Column(
                                 children: [
                                   Row(
@@ -533,28 +546,46 @@ class _HomeScreenState extends State<HomeScreen> {
                                         itemCount: _ventesParMois.length,
                                         itemBuilder: (context, idx) {
                                           final item = _ventesParMois[idx];
-                                          final maxVal = (_ventesParMois.map((e) => e.total).fold<double>(0.0, (p, n) => p > n ? p : n));
-                                          final width = maxVal == 0 ? 40.0 : (item.total / maxVal) * 120.0 + 40.0;
+                                          final maxVal = (_ventesParMois
+                                              .map((e) => e.total)
+                                              .fold<double>(0.0,
+                                                  (p, n) => p > n ? p : n));
+                                          final width = maxVal == 0
+                                              ? 40.0
+                                              : (item.total / maxVal) * 120.0 +
+                                                  40.0;
                                           return Container(
                                             width: 56,
-                                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                                            margin: const EdgeInsets.symmetric(
+                                                horizontal: 6),
                                             child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.end,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
                                               children: [
                                                 Container(
                                                   height: 100,
-                                                  alignment: Alignment.bottomCenter,
+                                                  alignment:
+                                                      Alignment.bottomCenter,
                                                   child: Container(
                                                     width: 14,
-                                                    height: (item.total == 0 || maxVal == 0) ? 4 : (item.total / maxVal) * 100,
+                                                    height: (item.total == 0 ||
+                                                            maxVal == 0)
+                                                        ? 4
+                                                        : (item.total /
+                                                                maxVal) *
+                                                            100,
                                                     decoration: BoxDecoration(
                                                       color: accentColor,
-                                                      borderRadius: BorderRadius.circular(6),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              6),
                                                     ),
                                                   ),
                                                 ),
                                                 const SizedBox(height: 6),
-                                                Text('${item.day}', style: const TextStyle(color: Colors.white70)),
+                                                Text('${item.day}',
+                                                    style: const TextStyle(
+                                                        color: Colors.black54)),
                                               ],
                                             ),
                                           );
@@ -564,7 +595,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   else
                                     Container(
                                       padding: const EdgeInsets.all(16),
-                                      child: const Center(child: Text('Aucune donnée pour ce mois', style: TextStyle(color: Colors.white70))),
+                                      child: const Center(
+                                          child: Text(
+                                              'Aucune donnée pour ce mois',
+                                              style: TextStyle(
+                                                  color: Colors.black54))),
                                     ),
                                 ],
                               ),
@@ -575,7 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-      bottomNavigationBar: _buildBottomNavigationBar(accentColor),
+      bottomNavigationBar: const MainBottomNav(currentIndex: 0),
     );
   }
 
@@ -588,13 +623,15 @@ class _HomeScreenState extends State<HomeScreen> {
     VoidCallback? onTap,
   }) {
     final child = Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: cardBg, // Maintenant accessible car c'est une constante de classe
-        borderRadius: BorderRadius.circular(20),
+        color:
+            cardBg, // Maintenant accessible car c'est une constante de classe
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -607,52 +644,56 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   icon,
                   color: color,
-                  size: 20,
+                  size: 12,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
+                  horizontal: 4,
+                  vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.black.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   trend,
                   style: TextStyle(
                     color: color,
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           Text(
             title,
             style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
+              color: Colors.black54,
+              fontSize: 10,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 2),
+          // Prevent grid cell overflow on small widths / with persistent bottom nav.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -696,17 +737,18 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(16),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final bool tight = constraints.maxHeight < 90 || constraints.maxWidth < 140;
-            final double pad = tight ? 14 : 20;
-            final double iconPad = tight ? 8 : 12;
-            final double iconSize = tight ? 20 : 24;
-            final double gap = tight ? 8 : 12;
-            final double fontSize = tight ? 12 : 14;
+            final bool tight =
+                constraints.maxHeight < 90 || constraints.maxWidth < 140;
+            final double pad = tight ? 5 : 7;
+            final double iconPad = tight ? 3 : 5;
+            final double iconSize = tight ? 12 : 14;
+            final double gap = tight ? 3 : 5;
+            final double fontSize = tight ? 10 : 12;
             return Container(
               padding: EdgeInsets.all(pad),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: color.withOpacity(0.2),
                   width: 1,
@@ -743,7 +785,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       title,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.black87,
                         fontSize: fontSize,
                         fontWeight: FontWeight.w600,
                       ),
@@ -769,8 +811,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF26282C),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
       ),
       child: Row(
         children: [
@@ -778,14 +821,14 @@ class _HomeScreenState extends State<HomeScreen> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: const Color(0xFF1B1D20),
+              color: Colors.black.withOpacity(0.04),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
               child: Text(
                 orderId.substring(1),
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black87,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -800,7 +843,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   customer,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black87,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -809,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   'MAD ${amount.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    color: Colors.white70,
+                    color: Colors.black54,
                     fontSize: 14,
                   ),
                 ),
@@ -841,7 +884,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 time,
                 style: const TextStyle(
-                  color: Colors.white54,
+                  color: Colors.black45,
                   fontSize: 12,
                 ),
               ),
@@ -852,85 +895,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBottomNavigationBar(Color accentColor) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(Icons.dashboard_rounded, 'Dashboard', 0, true, accentColor),
-          _buildNavItem(Icons.shopping_bag_rounded, 'Produits', 1, false, accentColor),
-          _buildNavItem(Icons.local_shipping_rounded, 'Livraisons', 2, false, accentColor),
-          _buildNavItem(Icons.person_rounded, 'Profil', 3, false, accentColor),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(
-    IconData icon,
-    String label,
-    int index,
-    bool selected,
-    Color accentColor,
-  ) {
-    return GestureDetector(
-      onTap: () {
-        switch (index) {
-          case 0:
-            // Already on home
-            break;
-          case 1:
-            Navigator.of(context).pushNamed('/products');
-            break;
-          case 2:
-            Navigator.of(context).pushNamed('/deliveries');
-            break;
-          case 3:
-            Navigator.of(context).pushNamed('/profile');
-            break;
-        }
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: selected ? accentColor.withOpacity(0.15) : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: selected ? accentColor : Colors.white70,
-              size: 22,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: selected ? accentColor : Colors.white70,
-              fontSize: 10,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Bottom navigation is now shared across main pages (see `MainBottomNav`).
 
   Future<void> _loadMonthData(int year, int month) async {
     if (_token == null) return;
@@ -971,7 +936,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getMonthLabel(int year, int month) {
-    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const months = [
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Juin',
+      'Juil',
+      'Août',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc'
+    ];
     return '${months[month - 1]} $year';
   }
 
@@ -994,8 +972,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF26282C),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1004,14 +983,15 @@ class _HomeScreenState extends State<HomeScreen> {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
           ),
           const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: color, fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -1023,8 +1003,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final now = DateTime.now();
     final days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     final months = [
-      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-      'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Juin',
+      'Juil',
+      'Août',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc'
     ];
     return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
   }
@@ -1063,14 +1053,17 @@ class _SalesChartPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final points = dataPoints;
-    final maxValue = (points.isEmpty) ? 1.0 : points.reduce((a, b) => a > b ? a : b);
+    final maxValue =
+        (points.isEmpty) ? 1.0 : points.reduce((a, b) => a > b ? a : b);
 
     final path = Path();
     final fillPath = Path();
 
     for (int i = 0; i < points.length; i++) {
-      final x = (i / (points.length - 1).clamp(1, double.infinity)) * size.width;
-      final y = size.height - (points[i] / (maxValue == 0 ? 1 : maxValue)) * size.height * 0.8;
+      final x =
+          (i / (points.length - 1).clamp(1, double.infinity)) * size.width;
+      final y = size.height -
+          (points[i] / (maxValue == 0 ? 1 : maxValue)) * size.height * 0.8;
 
       if (i == 0) {
         path.moveTo(x, y);
@@ -1078,7 +1071,10 @@ class _SalesChartPainter extends CustomPainter {
         fillPath.lineTo(x, y);
       } else {
         final prevX = ((i - 1) / (points.length - 1)) * size.width;
-        final prevY = size.height - (points[i - 1] / (maxValue == 0 ? 1 : maxValue)) * size.height * 0.8;
+        final prevY = size.height -
+            (points[i - 1] / (maxValue == 0 ? 1 : maxValue)) *
+                size.height *
+                0.8;
         final controlX1 = prevX + (x - prevX) * 0.3;
         final controlX2 = x - (x - prevX) * 0.3;
         path.cubicTo(controlX1, prevY, controlX2, y, x, y);
@@ -1086,9 +1082,12 @@ class _SalesChartPainter extends CustomPainter {
       }
 
       if (i == points.length - 1) {
-        final pointPaint = Paint()..color = const Color(0xFF2ECC71)..style = PaintingStyle.fill;
+        final pointPaint = Paint()
+          ..color = const Color(0xFF2ECC71)
+          ..style = PaintingStyle.fill;
         canvas.drawCircle(Offset(x, y), 4, pointPaint);
-        canvas.drawCircle(Offset(x, y), 8, pointPaint..color = const Color(0xFF2ECC71).withOpacity(0.3));
+        canvas.drawCircle(Offset(x, y), 8,
+            pointPaint..color = const Color(0xFF2ECC71).withOpacity(0.3));
       }
     }
 
@@ -1099,7 +1098,9 @@ class _SalesChartPainter extends CustomPainter {
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
-    final gridPaint = Paint()..color = Colors.white.withOpacity(0.05)..strokeWidth = 1;
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..strokeWidth = 1;
     for (int i = 1; i <= 4; i++) {
       final y = size.height * (i / 5);
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
@@ -1108,11 +1109,15 @@ class _SalesChartPainter extends CustomPainter {
     final textStyle = TextStyle(color: Colors.white70, fontSize: 10);
     for (int i = 0; i < labels.length; i++) {
       final x = (i / (labels.length - 1)) * size.width;
-      final paragraph = TextPainter(text: TextSpan(text: labels[i], style: textStyle), textDirection: TextDirection.ltr)..layout();
+      final paragraph = TextPainter(
+          text: TextSpan(text: labels[i], style: textStyle),
+          textDirection: TextDirection.ltr)
+        ..layout();
       paragraph.paint(canvas, Offset(x - paragraph.width / 2, size.height + 4));
     }
   }
 
   @override
-  bool shouldRepaint(covariant _SalesChartPainter oldDelegate) => oldDelegate.dataPoints != dataPoints || oldDelegate.labels != labels;
-}    
+  bool shouldRepaint(covariant _SalesChartPainter oldDelegate) =>
+      oldDelegate.dataPoints != dataPoints || oldDelegate.labels != labels;
+}

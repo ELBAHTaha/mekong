@@ -6,9 +6,36 @@ use Illuminate\Http\Request;
 use App\Models\Commande;
 use App\Models\CommandeProduit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Http;
 
 class CommandesController extends Controller
 {
+    private function commandeColumnNames(): array
+    {
+        static $columns = null;
+        if ($columns === null) {
+            $columns = Schema::getColumnListing('commandes');
+        }
+
+        return $columns;
+    }
+
+    private function commandeProduitColumnNames(): array
+    {
+        static $columns = null;
+        if ($columns === null) {
+            $columns = Schema::getColumnListing('commande_produits');
+        }
+
+        return $columns;
+    }
+
+    private function filterExistingColumns(array $payload, array $columns): array
+    {
+        return array_intersect_key($payload, array_flip($columns));
+    }
+
     public function index(Request $request)
     {
         $q = Commande::with(['produits','caissier','table','commandeServeur']);
@@ -146,27 +173,103 @@ class CommandesController extends Controller
             'table_id' => 'nullable|integer',
             'caissier_id' => 'nullable|integer',
             'date_commande' => 'nullable|date',
-            'adresse' => 'nullable|string',
-            'telephone' => 'nullable|string',
+            // POS compatibility fields (same table as saveOrder.php)
+            'methode_paiement' => 'nullable|string|max:255',
+            'statut_paiement' => 'nullable|string|max:255',
+            'montant_paye' => 'nullable|numeric',
+            'monnaie_rendue' => 'nullable|numeric',
+            'GSM_client' => 'nullable|string|max:255',
+            'adresse_livraison' => 'nullable|string|max:255',
+            'livreur_id' => 'nullable|integer',
             'notes' => 'nullable|string',
             'items' => 'nullable|array',
         ]);
 
-        $data = $request->only(['client_nom','type','statut','total','table_id','caissier_id','date_commande','adresse','telephone','notes']);
-        if (empty($data['statut'])) $data['statut'] = 'NOUVELLE';
-        $commande = Commande::create($data);
+        $commandeColumns = $this->commandeColumnNames();
+        $commandeProduitColumns = $this->commandeProduitColumnNames();
 
-        // items
         $items = $request->input('items', []);
-        foreach ($items as $it) {
-            $cp = new CommandeProduit();
-            $cp->commande_id = $commande->id;
-            $cp->produit_id = $it['produit_id'] ?? null;
-            $cp->nom = $it['nom'] ?? ($it['produit_name'] ?? '');
-            $cp->quantite = $it['quantite'] ?? 1;
-            $cp->prix_unitaire = $it['prix_unitaire'] ?? 0;
-            $cp->total = ($it['total'] ?? ($cp->quantite * $cp->prix_unitaire));
-            $cp->save();
+        // Store items JSON in `commandes.items` for POS compatibility (saveOrder.php).
+        $itemsJson = json_encode($items, JSON_UNESCAPED_UNICODE);
+
+        $data = $this->filterExistingColumns($request->only([
+            'client_nom',
+            'type',
+            'statut',
+            'total',
+            'table_id',
+            'caissier_id',
+            'date_commande',
+            'notes',
+            'methode_paiement',
+            'statut_paiement',
+            'montant_paye',
+            'monnaie_rendue',
+            'GSM_client',
+            'adresse_livraison',
+            'livreur_id',
+        ]), $commandeColumns);
+
+        if (in_array('items', $commandeColumns, true)) {
+            $data['items'] = $itemsJson;
+        }
+        if (empty($data['statut'])) $data['statut'] = 'NOUVELLE';
+
+        // Ensure POS non-null columns have sane defaults even if DB defaults differ.
+        if (in_array('methode_paiement', $commandeColumns, true) && empty($data['methode_paiement'])) {
+            $data['methode_paiement'] = 'CASH';
+        }
+        if (in_array('statut_paiement', $commandeColumns, true) && empty($data['statut_paiement'])) {
+            $data['statut_paiement'] = 'CASH';
+        }
+        if (in_array('adresse_livraison', $commandeColumns, true) && empty($data['adresse_livraison'])) {
+            $data['adresse_livraison'] = '';
+        }
+        if (in_array('GSM_client', $commandeColumns, true) && empty($data['GSM_client'])) {
+            $data['GSM_client'] = '';
+        }
+        if (in_array('montant_paye', $commandeColumns, true) && !isset($data['montant_paye'])) {
+            $data['montant_paye'] = 0;
+        }
+        if (in_array('monnaie_rendue', $commandeColumns, true) && !isset($data['monnaie_rendue'])) {
+            $data['monnaie_rendue'] = 0;
+        }
+
+        $commande = DB::transaction(function () use ($data, $request, $commandeProduitColumns) {
+            $commande = Commande::create($data);
+
+            $items = $request->input('items', []);
+            foreach ($items as $it) {
+                $itemData = [
+                    'commande_id' => $commande->id,
+                    'produit_id' => $it['produit_id'] ?? null,
+                    'nom' => $it['nom'] ?? ($it['produit_name'] ?? ''),
+                    'quantite' => $it['quantite'] ?? 1,
+                    'prix_unitaire' => $it['prix_unitaire'] ?? 0,
+                    'total' => $it['total'] ?? (($it['quantite'] ?? 1) * ($it['prix_unitaire'] ?? 0)),
+                ];
+
+                DB::table('commande_produits')->insert(
+                    $this->filterExistingColumns($itemData, $commandeProduitColumns)
+                );
+            }
+
+            return $commande;
+        });
+
+        // Notify realtime/printing server (like saveOrder.php).
+        // Configure REALTIME_NOTIFY_URL on the VPS:
+        //   REALTIME_NOTIFY_URL=http://127.0.0.1:3132/notify
+        $notifyUrl = env('REALTIME_NOTIFY_URL', 'http://127.0.0.1:3132/notify');
+        if (!empty($notifyUrl)) {
+            try {
+                Http::timeout(1)->post($notifyUrl, [
+                    'event' => 'order_created',
+                    'order_id' => $commande->id,
+                ]);
+            } catch (\Throwable $e) {
+                // Do not fail the order creation if realtime server is down.
+            }
         }
 
         // refresh with produits
@@ -186,24 +289,43 @@ class CommandesController extends Controller
         $commande = Commande::find($id);
         if (!$commande) return response()->json(['error' => 'not_found'], 404);
 
-        $data = $request->only(['client_nom','type','statut','total','table_id','caissier_id','date_commande','adresse','telephone','notes']);
-        $commande->fill($data);
-        $commande->save();
+        $commandeColumns = $this->commandeColumnNames();
+        $commandeProduitColumns = $this->commandeProduitColumnNames();
 
-        // replace items if provided
-        if ($request->has('items')) {
-            CommandeProduit::where('commande_id', $commande->id)->delete();
-            $items = $request->input('items', []);
-            foreach ($items as $it) {
-                $cp = new CommandeProduit();
-                $cp->commande_id = $commande->id;
-                $cp->produit_id = $it['produit_id'] ?? null;
-                $cp->nom = $it['nom'] ?? ($it['produit_name'] ?? '');
-                $cp->quantite = $it['quantite'] ?? 1;
-                $cp->prix_unitaire = $it['prix_unitaire'] ?? 0;
-                $cp->total = ($it['total'] ?? ($cp->quantite * $cp->prix_unitaire));
-                $cp->save();
+        DB::transaction(function () use ($request, $commande, $commandeColumns, $commandeProduitColumns) {
+            $data = $this->filterExistingColumns(
+                $request->only(['client_nom','type','statut','total','table_id','caissier_id','date_commande','adresse','telephone','notes']),
+                $commandeColumns
+            );
+            $commande->fill($data);
+            $commande->save();
+
+            if ($request->has('items')) {
+                CommandeProduit::where('commande_id', $commande->id)->delete();
+                $items = $request->input('items', []);
+                foreach ($items as $it) {
+                    $itemData = [
+                        'commande_id' => $commande->id,
+                        'produit_id' => $it['produit_id'] ?? null,
+                        'nom' => $it['nom'] ?? ($it['produit_name'] ?? ''),
+                        'quantite' => $it['quantite'] ?? 1,
+                        'prix_unitaire' => $it['prix_unitaire'] ?? 0,
+                        'total' => $it['total'] ?? (($it['quantite'] ?? 1) * ($it['prix_unitaire'] ?? 0)),
+                    ];
+
+                    DB::table('commande_produits')->insert(
+                        $this->filterExistingColumns($itemData, $commandeProduitColumns)
+                    );
+                }
             }
+        });
+
+        $commande->refresh();
+        // Commande sur place annulée → libérer la table (aligné POS / affichage serveur).
+        if ($commande->statut === 'ANNULEE' && $commande->table_id) {
+            DB::table('tables_restaurant')
+                ->where('id', $commande->table_id)
+                ->update(['etat' => 'LIBRE']);
         }
 
         $commande->load('produits');

@@ -4,10 +4,23 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\CategorieProduit;
 
 class CategoriesController extends Controller
 {
+    private function storeUploadedPhoto(Request $request, string $folder): ?string
+    {
+        if (!$request->hasFile('photo_file')) {
+            return null;
+        }
+        $file = $request->file('photo_file');
+        if (!$file || !$file->isValid()) {
+            return null;
+        }
+        return $file->store($folder, 'public');
+    }
+
     private function authFromRequest(Request $request)
     {
         $authHeader = $request->header('Authorization');
@@ -52,11 +65,13 @@ class CategoriesController extends Controller
         $data = $request->validate([
             'nom' => 'required|string|max:150',
             'photo' => 'nullable|string|max:255',
+            'photo_file' => 'nullable|file|image|max:5120',
         ]);
 
         $cat = new CategorieProduit();
         $cat->nom = $data['nom'];
-        $cat->photo = $data['photo'] ?? null;
+        $uploaded = $this->storeUploadedPhoto($request, 'uploads/categories');
+        $cat->photo = $uploaded ?? ($data['photo'] ?? null);
         $cat->created_at = now();
         $cat->save();
 
@@ -78,10 +93,16 @@ class CategoriesController extends Controller
         $data = $request->validate([
             'nom' => 'nullable|string|max:150',
             'photo' => 'nullable|string|max:255',
+            'photo_file' => 'nullable|file|image|max:5120',
         ]);
 
         if (isset($data['nom'])) $cat->nom = $data['nom'];
-        if (array_key_exists('photo', $data)) $cat->photo = $data['photo'];
+        $uploaded = $this->storeUploadedPhoto($request, 'uploads/categories');
+        if ($uploaded) {
+            $cat->photo = $uploaded;
+        } elseif (array_key_exists('photo', $data)) {
+            $cat->photo = $data['photo'];
+        }
         $cat->save();
 
         return response()->json([

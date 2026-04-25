@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 
 class ApiController extends Controller
 {
@@ -118,19 +119,46 @@ class ApiController extends Controller
         }
 
 
-        // Commandes récentes du jour: combiner `commandes` et `commande_serveur`, trier par date
+        // Commandes récentes du jour: combiner `commandes` et `commande_serveur`, trier par date.
+        // Quand client_nom est vide (POS / sur place), on renvoie un libellé lisible (type + table si dispo).
         $recentCommandes = DB::table('commandes')
-            ->whereDate('date_commande', $today)
-            ->orderByDesc('date_commande')
+            ->leftJoin('tables_restaurant', 'commandes.table_id', '=', 'tables_restaurant.id')
+            ->whereDate('commandes.date_commande', $today)
+            ->orderByDesc('commandes.date_commande')
             ->limit(10)
-            ->get(['id','client_nom','statut','total','date_commande','type']);
+            ->select([
+                'commandes.id',
+                DB::raw("COALESCE(NULLIF(TRIM(commandes.client_nom), ''), CASE commandes.type
+                    WHEN 'LIVRAISON' THEN 'Livraison'
+                    WHEN 'SUR_PLACE' THEN CASE WHEN tables_restaurant.numero IS NOT NULL
+                        THEN CONCAT('Sur place · Table ', tables_restaurant.numero)
+                        ELSE 'Sur place' END
+                    ELSE CONCAT('Commande #', commandes.id)
+                END) as client_nom"),
+                'commandes.statut',
+                'commandes.total',
+                'commandes.date_commande',
+                'commandes.type',
+            ])
+            ->get();
 
         $recentServeur = DB::table('commande_serveur')
             ->whereDate('commande_serveur.date_commande', $today)
             ->leftJoin('personnel', 'commande_serveur.serveur_id', '=', 'personnel.id')
+            ->leftJoin('tables_restaurant', 'commande_serveur.table_id', '=', 'tables_restaurant.id')
             ->orderByDesc('commande_serveur.date_commande')
             ->limit(10)
-            ->get(['commande_serveur.id', DB::raw('personnel.nom as client_nom'), 'commande_serveur.statut', 'commande_serveur.total', 'commande_serveur.date_commande', DB::raw("'serveur' as type")]);
+            ->select([
+                'commande_serveur.id',
+                DB::raw("COALESCE(NULLIF(TRIM(personnel.nom), ''), CASE WHEN tables_restaurant.numero IS NOT NULL
+                    THEN CONCAT('Serveur · Table ', tables_restaurant.numero)
+                    ELSE 'Commande serveur' END) as client_nom"),
+                'commande_serveur.statut',
+                'commande_serveur.total',
+                'commande_serveur.date_commande',
+                DB::raw("'serveur' as type"),
+            ])
+            ->get();
 
         // Fusionner, trier et limiter à 3 éléments
         $merged = $recentCommandes->concat($recentServeur)
@@ -168,6 +196,74 @@ class ApiController extends Controller
             'livraison_count_du_jour' => $livraisonCount,
             'total_commandes_du_jour' => $totalCommandesToday,
         ]);
+    }
+
+    /**
+     * Notify kitchen/printer server about a cancelled item.
+     * The realtime server URL is configured via REALTIME_NOTIFY_URL.
+     */
+    public function kitchenCancel(Request $request)
+    {
+        $data = $request->validate([
+            'event' => 'nullable|string|max:50',
+            'table_id' => 'nullable|integer',
+            'table_numero' => 'nullable|integer',
+            'serveur_id' => 'nullable|integer',
+            'serveur_nom' => 'nullable|string|max:255',
+            'produit_id' => 'nullable|integer',
+            'produit_nom' => 'required|string|max:255',
+            'quantite' => 'required|integer|min:1',
+            'prix_unitaire' => 'nullable|numeric',
+            'timestamp' => 'nullable|string|max:50',
+        ]);
+
+        $payload = $data;
+        $payload['event'] = $payload['event'] ?? 'order_item_cancelled';
+
+        $notifyUrl = env('REALTIME_NOTIFY_URL', 'http://127.0.0.1:3132/notify');
+        if (!empty($notifyUrl)) {
+            try {
+                Http::timeout(1)->post($notifyUrl, $payload);
+            } catch (\Throwable $e) {
+                // Do not fail if realtime server is down.
+            }
+        }
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Notify kitchen/printer server about an added item.
+     * The realtime server URL is configured via REALTIME_NOTIFY_URL.
+     */
+    public function kitchenAdd(Request $request)
+    {
+        $data = $request->validate([
+            'event' => 'nullable|string|max:50',
+            'table_id' => 'nullable|integer',
+            'table_numero' => 'nullable|integer',
+            'serveur_id' => 'nullable|integer',
+            'serveur_nom' => 'nullable|string|max:255',
+            'produit_id' => 'nullable|integer',
+            'produit_nom' => 'required|string|max:255',
+            'quantite' => 'required|integer|min:1',
+            'prix_unitaire' => 'nullable|numeric',
+            'timestamp' => 'nullable|string|max:50',
+        ]);
+
+        $payload = $data;
+        $payload['event'] = $payload['event'] ?? 'order_item_added';
+
+        $notifyUrl = env('REALTIME_NOTIFY_URL', 'http://127.0.0.1:3132/notify');
+        if (!empty($notifyUrl)) {
+            try {
+                Http::timeout(1)->post($notifyUrl, $payload);
+            } catch (\Throwable $e) {
+                // Do not fail if realtime server is down.
+            }
+        }
+
+        return response()->json(['status' => 'ok']);
     }
 
     /**

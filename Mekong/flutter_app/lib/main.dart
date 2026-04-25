@@ -10,6 +10,7 @@ import 'screens/orders.dart';
 import 'screens/deliveries.dart';
 import 'screens/livreur.dart';
 import 'screens/serveur_home.dart';
+import 'screens/new_order.dart';
 import 'theme_controller.dart';
 // splash removed
 import 'screens/forgot_password.dart';
@@ -27,7 +28,12 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light,
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFD43B3B)),
-        scaffoldBackgroundColor: const Color(0xFFF4F5FF),
+        scaffoldBackgroundColor: const Color(0xFFF7F7FB),
+        visualDensity: VisualDensity.standard,
+        appBarTheme: const AppBarTheme(
+          centerTitle: false,
+          scrolledUnderElevation: 0,
+        ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFD43B3B),
@@ -36,11 +42,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
         textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(foregroundColor: Colors.white),
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          labelStyle: TextStyle(color: Colors.white),
-          hintStyle: TextStyle(color: Colors.white70),
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFD43B3B)),
         ),
       );
 
@@ -73,7 +75,8 @@ class MyApp extends StatelessWidget {
         title: 'LE MEKONG',
         theme: _light,
         darkTheme: _dark,
-        themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+        // Force light mode for the whole app (better readability + consistent UX).
+        themeMode: ThemeMode.light,
         initialRoute: '/login',
         routes: {
           '/login': (context) => const LoginScreen(),
@@ -89,6 +92,7 @@ class MyApp extends StatelessWidget {
           '/livreur': (context) => const LivreurScreen(),
           '/tables': (context) => const RestaurantTablesScreen(),
           '/home_serveur': (context) => const ServeurHomeScreen(),
+          '/new-order': (context) => const NewOrderScreen(),
         },
       ),
     );

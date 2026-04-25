@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/main_bottom_nav.dart';
  
 
 class LivraisonsScreen extends StatefulWidget {
@@ -106,8 +107,8 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
   final bool _isAdmin = false;
 
   // ============ CONSTANTES ============
-  static const Color bg = Color(0xFF0F1113);
-  static const Color cardBg = Color(0xFF1B1D20);
+  static const Color bg = Color(0xFFF7F7FB);
+  static const Color cardBg = Colors.white;
   static const Color accentColor = Color(0xFFD43B3B);
   static const Color successColor = Color(0xFF2ECC71);
   static const Color warningColor = Color(0xFFF39C12);
@@ -194,15 +195,16 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: cardBg,
-        title: const Text('Annuler livraison', style: TextStyle(color: Colors.white)),
+        title: const Text('Annuler livraison',
+            style: TextStyle(color: Colors.black87)),
         content: Text(
           'Êtes-vous sûr de vouloir annuler la livraison #${livraison.id} ?',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: Colors.black54),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Non', style: TextStyle(color: Colors.white70)),
+            child: const Text('Non', style: TextStyle(color: Colors.black54)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -246,6 +248,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
         ],
       ),
       floatingActionButton: null,
+      bottomNavigationBar: const MainBottomNav(currentIndex: 3),
     );
   }
 
@@ -254,19 +257,29 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
       backgroundColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white70),
-        onPressed: () => Navigator.pop(context),
+        icon: const Icon(Icons.arrow_back, color: Colors.black54),
+        onPressed: () {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+          } else {
+            nav.pushReplacementNamed('/home');
+          }
+        },
       ),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Livraisons',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+            style: TextStyle(
+                color: Colors.black87,
+                fontSize: 20,
+                fontWeight: FontWeight.w700),
           ),
           Text(
             '${_filteredLivraisons.length} livraison${_filteredLivraisons.length > 1 ? 's' : ''}',
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
           ),
         ],
       ),
@@ -276,7 +289,9 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
           margin: const EdgeInsets.only(right: 8),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _isAdmin ? successColor.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+            color: _isAdmin
+                ? successColor.withOpacity(0.14)
+                : Colors.black.withOpacity(0.04),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -285,7 +300,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: _isAdmin ? successColor : Colors.white54,
+                  color: _isAdmin ? successColor : Colors.black45,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -293,7 +308,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
               Text(
                 _isAdmin ? 'ADMIN' : 'LECTURE',
                 style: TextStyle(
-                  color: _isAdmin ? successColor : Colors.white54,
+                  color: _isAdmin ? successColor : Colors.black45,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -303,7 +318,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
         ),
         // Rafraîchir (simulé)
         IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.white70),
+          icon: const Icon(Icons.refresh, color: Colors.black54),
           onPressed: () {
             _applyFilters();
             _showMessage('Données rafraîchies');
@@ -326,14 +341,14 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                 _applyFilters();
               });
             },
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.black87),
             decoration: InputDecoration(
               hintText: 'Rechercher client, adresse, téléphone...',
-              hintStyle: const TextStyle(color: Colors.white38),
-              prefixIcon: const Icon(Icons.search, color: Colors.white54),
+              hintStyle: const TextStyle(color: Colors.black38),
+              prefixIcon: const Icon(Icons.search, color: Colors.black45),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white54),
+                      icon: const Icon(Icons.clear, color: Colors.black45),
                       onPressed: () {
                         setState(() {
                           _searchQuery = '';
@@ -364,7 +379,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                     label: Text(
                       statut,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
+                        color: isSelected ? Colors.black87 : Colors.black54,
                         fontSize: 13,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                       ),
@@ -376,11 +391,11 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                         _applyFilters();
                       });
                     },
-                    backgroundColor: const Color(0xFF23262B),
+                    backgroundColor: Colors.white,
                     selectedColor: color.withOpacity(0.35),
                     showCheckmark: false,
                     side: BorderSide(
-                      color: isSelected ? color : Colors.white30,
+                      color: isSelected ? color : Colors.black12,
                       width: isSelected ? 1.6 : 1,
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -467,7 +482,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                               Text(
                                 '#${livraison.id}',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.black87,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -497,7 +512,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                           Text(
                             livraison.clientNom,
                             style: const TextStyle(
-                              color: Colors.white70,
+                              color: Colors.black54,
                               fontSize: 14,
                             ),
                           ),
@@ -525,7 +540,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                             decoration: BoxDecoration(
                               color: livraison.tempsEstime! < 15
                                   ? accentColor.withOpacity(0.2)
-                                  : Colors.white.withOpacity(0.1),
+                                  : Colors.black.withOpacity(0.06),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -533,7 +548,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                               style: TextStyle(
                                 color: livraison.tempsEstime! < 15
                                     ? accentColor
-                                    : Colors.white70,
+                                    : Colors.black54,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -550,13 +565,13 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                 // Adresse
                 Row(
                   children: [
-                    const Icon(Icons.location_on, size: 14, color: Colors.white38),
+                    const Icon(Icons.location_on, size: 14, color: Colors.black38),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         livraison.adresse,
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: Colors.black54,
                           fontSize: 13,
                         ),
                       ),
@@ -569,12 +584,12 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.phone, size: 14, color: Colors.white38),
+                      const Icon(Icons.phone, size: 14, color: Colors.black38),
                       const SizedBox(width: 8),
                       Text(
                         livraison.telephone!,
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: Colors.black54,
                           fontSize: 13,
                         ),
                       ),
@@ -594,7 +609,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                       decoration: BoxDecoration(
                         color: livraison.livreurNom != 'Non assigné'
                             ? successColor.withOpacity(0.1)
-                            : Colors.white.withOpacity(0.05),
+                            : Colors.black.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -604,7 +619,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                             size: 12,
                             color: livraison.livreurNom != 'Non assigné'
                                 ? successColor
-                                : Colors.white38,
+                                : Colors.black38,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -612,7 +627,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                             style: TextStyle(
                               color: livraison.livreurNom != 'Non assigné'
                                   ? successColor
-                                  : Colors.white54,
+                                  : Colors.black54,
                               fontSize: 12,
                             ),
                           ),
@@ -721,7 +736,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: Colors.black12,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -755,7 +770,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                                 Text(
                                   'Livraison #${livraison.id}',
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: Colors.black87,
                                     fontSize: 22,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -786,14 +801,14 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                       ),
                       
                       const SizedBox(height: 24),
-                      const Divider(color: Colors.white24),
+                      const Divider(color: Colors.black12),
                       const SizedBox(height: 16),
                       
                       // Informations client
                       const Text(
                         'CLIENT',
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: Colors.black54,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -818,14 +833,14 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                         ),
                       
                       const SizedBox(height: 16),
-                      const Divider(color: Colors.white24),
+                      const Divider(color: Colors.black12),
                       const SizedBox(height: 16),
                       
                       // Informations commande
                       const Text(
                         'COMMANDE',
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: Colors.black54,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -850,14 +865,14 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                         ),
                       
                       const SizedBox(height: 16),
-                      const Divider(color: Colors.white24),
+                      const Divider(color: Colors.black12),
                       const SizedBox(height: 16),
                       
                       // Informations livreur
                       const Text(
                         'LIVREUR',
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: Colors.black54,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -877,14 +892,14 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                         ),
                       
                       const SizedBox(height: 16),
-                      const Divider(color: Colors.white24),
+                      const Divider(color: Colors.black12),
                       const SizedBox(height: 16),
                       
                       // Historique
                       const Text(
                         'HISTORIQUE',
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: Colors.black54,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -921,7 +936,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                                     Text(
                                       _formatDateTime(event['date']),
                                       style: const TextStyle(
-                                        color: Colors.white38,
+                                        color: Colors.black38,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -934,7 +949,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
                       else
                         const Text(
                           'Aucun historique',
-                          style: TextStyle(color: Colors.white38, fontSize: 13),
+                          style: TextStyle(color: Colors.black38, fontSize: 13),
                         ),
                       
                       const SizedBox(height: 32),
@@ -1038,19 +1053,19 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: Colors.white38),
+          Icon(icon, size: 16, color: Colors.black38),
           const SizedBox(width: 12),
           SizedBox(
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
+              style: const TextStyle(color: Colors.black54, fontSize: 13),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(color: Colors.black87, fontSize: 13),
             ),
           ),
         ],
@@ -1073,14 +1088,14 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
             child: const Icon(
               Icons.delivery_dining,
               size: 60,
-              color: Colors.white24,
+              color: Colors.black12,
             ),
           ),
           const SizedBox(height: 24),
           const Text(
             'Aucune livraison',
             style: TextStyle(
-              color: Colors.white,
+              color: Colors.black87,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -1088,7 +1103,7 @@ class _LivraisonsScreenState extends State<LivraisonsScreen> {
           const SizedBox(height: 8),
           const Text(
             'Les livraisons apparaîtront ici',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
+            style: TextStyle(color: Colors.black54, fontSize: 14),
           ),
         ],
       ),

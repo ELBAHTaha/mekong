@@ -29,21 +29,27 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
   bool _loadingTableOrder = false;
   int _fallbackProductId = -1;
 
-  OrderType _orderType = OrderType.surPlace;
   RestaurantTable? _selectedTable;
 
   Timer? _unreadTimer;
+  Timer? _tablesTimer;
+  static const Duration _tablesRefreshInterval = Duration(seconds: 5);
 
   @override
   void initState() {
     super.initState();
     _bootstrap();
+    // Keep table states in sync across devices by polling the backend.
+    _tablesTimer = Timer.periodic(_tablesRefreshInterval, (_) {
+      _loadTables();
+    });
   }
 
   @override
   void dispose() {
     _noteCtrl.dispose();
     _unreadTimer?.cancel();
+    _tablesTimer?.cancel();
     super.dispose();
   }
 
@@ -173,20 +179,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
     return _resolveImageUrl(v);
   }
 
-  void _setOrderType(OrderType type) {
-    setState(() {
-      _orderType = type;
-      if (type == OrderType.emporter) {
-        _selectedTable = null;
-        _showTables = false;
-      } else {
-        _showTables = true;
-      }
-    });
-  }
-
   void _toggleTable(RestaurantTable table) {
-    if (_orderType != OrderType.surPlace) return;
     setState(() {
       final already = _selectedTable?.id == table.id;
       _selectedTable = already ? null : table;
@@ -206,6 +199,8 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
   }
 
   void _addProduct(MenuProduct product) {
+    // Detect if this add happens on an existing (already loaded) table order.
+    final isFullTable = _selectedTable != null && _order.isNotEmpty;
     setState(() {
       final existing = _order[product.id];
       if (existing != null) {
@@ -214,11 +209,18 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
         _order[product.id] = OrderItem(product: product, quantity: 1);
       }
     });
+
+    // If we are adding to a table that already has items, send an "added" ticket to kitchen.
+    if (isFullTable) {
+      _notifyKitchenAdd(product, 1);
+    }
   }
 
   void _incItem(MenuProduct product) => _addProduct(product);
 
   void _decItem(MenuProduct product) {
+    final existed = _order[product.id];
+    final hadQty = existed?.quantity ?? 0;
     setState(() {
       final existing = _order[product.id];
       if (existing == null) return;
@@ -228,6 +230,52 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
         _order[product.id] = existing.copyWith(quantity: existing.quantity - 1);
       }
     });
+
+    // Send a cancellation ticket to kitchen when a server removes an item.
+    // Only when there was actually something to remove.
+    if (hadQty > 0) {
+      _notifyKitchenCancel(product, 1);
+    }
+  }
+
+  Future<void> _notifyKitchenCancel(MenuProduct product, int qtyCancelled) async {
+    final table = _selectedTable;
+    if (table == null) return;
+    try {
+      await _api.notifyKitchenItemCancelled({
+        'event': 'order_item_cancelled',
+        'table_id': int.tryParse(table.id),
+        'table_numero': table.number,
+        'serveur_id': _me?.id,
+        'serveur_nom': _me?.name,
+        'produit_id': product.id,
+        'produit_nom': product.name,
+        'quantite': qtyCancelled,
+        'prix_unitaire': product.price,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (_) {
+      // Keep UI responsive even if kitchen notify fails.
+    }
+  }
+
+  Future<void> _notifyKitchenAdd(MenuProduct product, int qtyAdded) async {
+    final table = _selectedTable;
+    if (table == null) return;
+    try {
+      await _api.notifyKitchenItemAdded({
+        'event': 'order_item_added',
+        'table_id': int.tryParse(table.id),
+        'table_numero': table.number,
+        'serveur_id': _me?.id,
+        'serveur_nom': _me?.name,
+        'produit_id': product.id,
+        'produit_nom': product.name,
+        'quantite': qtyAdded,
+        'prix_unitaire': product.price,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    } catch (_) {}
   }
 
   double get _total {
@@ -241,7 +289,10 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
   Future<void> _loadActiveCommandeForTable(RestaurantTable table) async {
     setState(() => _loadingTableOrder = true);
     try {
-      final list = await _api.fetchCommandeServeurList();
+      final List<dynamic> list = await _api.fetchCommandes(
+        type: 'SUR_PLACE',
+        includeServeur: true,
+      );
       final allowed = {'NOUVELLE', 'PREPARATION', 'PRETE'};
       final matches = list.where((c) {
         final statut = (c['statut'] ?? '').toString().toUpperCase();
@@ -274,7 +325,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
       });
 
       final cmd = matches.first;
-      final items = (cmd['items'] as List?) ?? const [];
+      final items = (cmd['produits'] as List?) ??
+          (cmd['items'] as List?) ??
+          const [];
       final Map<int, OrderItem> restored = {};
       for (final it in items) {
         if (it is! Map) continue;
@@ -334,7 +387,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
       );
       return;
     }
-    if (_orderType == OrderType.surPlace && _selectedTable == null) {
+    if (_selectedTable == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sélectionnez une table.')),
       );
@@ -351,29 +404,29 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
       };
     }).toList();
 
+    final tableToOccupy = _selectedTable;
+
     final payload = <String, dynamic>{
-      'type_commande': _orderType == OrderType.surPlace ? 'SUR_PLACE' : 'A_EMPORTER',
-      'table_id': _selectedTable == null ? null : int.tryParse(_selectedTable!.id),
-      'table_numero': _selectedTable?.number,
+      'type': 'SUR_PLACE',
+      'statut': 'NOUVELLE',
       'total': _total,
+      'table_id': tableToOccupy == null
+          ? null
+          : int.tryParse(tableToOccupy.id),
       'notes': _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
       'items': items,
       'date_commande': DateTime.now().toIso8601String(),
+      'caissier_id': _me?.id,
     };
 
-    if (_me != null) {
-      payload['serveur_id'] = _me!.id;
-      payload['serveur_nom'] = _me!.name;
-    }
-
     try {
-      await _api.createCommandeServeur(payload);
+      await _api.createCommande(payload);
       if (!mounted) return;
       setState(() {
         _order.clear();
         _noteCtrl.clear();
-        if (_orderType == OrderType.surPlace && _selectedTable != null) {
-          final idx = _tables.indexWhere((t) => t.id == _selectedTable!.id);
+        if (tableToOccupy != null) {
+          final idx = _tables.indexWhere((t) => t.id == tableToOccupy.id);
           if (idx != -1) {
             _tables[idx] = _tables[idx].copyWith(state: TableState.OCCUPEE);
           }
@@ -382,12 +435,13 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
         _showTables = true;
         _selectedTable = null;
       });
-      if (_orderType == OrderType.surPlace && _selectedTable != null) {
-        final tableId = int.tryParse(_selectedTable!.id) ?? 0;
+      if (tableToOccupy != null) {
+        final tableId = int.tryParse(tableToOccupy.id) ?? 0;
         if (tableId > 0) {
-          _api.updateTable(tableId, {'etat': 'OCCUPEE'}).catchError((_) {});
+          await _api.updateTable(tableId, {'etat': 'OCCUPEE'});
         }
       }
+      await _loadTables();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Commande enregistrée'),
@@ -404,8 +458,8 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFF0F1113);
-    const card = Color(0xFF1B1D20);
+    const bg = Color(0xFFF6F7F9);
+    const card = Colors.white;
     const accent = Color(0xFFD43B3B);
 
     final name = _me?.name ?? 'Serveur';
@@ -421,19 +475,25 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildTopBar(name, dateText),
-                          const SizedBox(height: 20),
-                          _buildModeCards(),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           _buildLegend(),
                           const SizedBox(height: 14),
-                          if (_showTables) _buildTablePlan(),
-                          if (_showTables) const SizedBox(height: 20),
-                          _buildCategoryOrProducts(),
+                          if (_showTables || _selectedTable == null) ...[
+                            _buildTablePlan(),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Sélectionnez une table pour continuer',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                            const SizedBox(height: 20),
+                          ] else ...[
+                            _buildCategoryOrProducts(),
+                          ],
                         ],
                       ),
                     ),
@@ -456,18 +516,18 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.06),
             shape: BoxShape.circle,
           ),
           child: const Center(
-            child: Text('T', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            child: Text('T', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
           ),
         );
         final nameBlock = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Bonjour,', style: TextStyle(color: Colors.white70, fontSize: 13)),
-            Text(name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Bonjour,', style: TextStyle(color: Colors.black54, fontSize: 13)),
+            Text(name, style: const TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             _buildTableBadge(),
           ],
@@ -476,7 +536,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
           children: [
             IconButton(
               onPressed: () => _loadUnread(),
-              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white70),
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.black54),
             ),
             if (_unreadCount > 0)
               Positioned(
@@ -507,7 +567,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
               const SizedBox(width: 12),
               nameBlock,
               const Spacer(),
-              Text(dateText, style: const TextStyle(color: Colors.white70)),
+              Text(dateText, style: const TextStyle(color: Colors.black54)),
               const SizedBox(width: 16),
               bell,
             ],
@@ -531,110 +591,13 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(shortDate, style: const TextStyle(color: Colors.white70)),
+                Text(shortDate, style: const TextStyle(color: Colors.black54)),
                 bell,
               ],
             ),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildModeCards() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final stacked = constraints.maxWidth < 520;
-        if (stacked) {
-          return Column(
-            children: [
-              _modeCard(
-                active: _orderType == OrderType.surPlace,
-                title: 'Sur place',
-                subtitle: 'Service à table',
-                icon: Icons.table_restaurant_outlined,
-                onTap: () => _setOrderType(OrderType.surPlace),
-              ),
-              const SizedBox(height: 12),
-              _modeCard(
-                active: _orderType == OrderType.emporter,
-                title: 'Emporter',
-                subtitle: 'Commande à emporter',
-                icon: Icons.shopping_bag_outlined,
-                onTap: () => _setOrderType(OrderType.emporter),
-              ),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(
-              child: _modeCard(
-                active: _orderType == OrderType.surPlace,
-                title: 'Sur place',
-                subtitle: 'Service à table',
-                icon: Icons.table_restaurant_outlined,
-                onTap: () => _setOrderType(OrderType.surPlace),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _modeCard(
-                active: _orderType == OrderType.emporter,
-                title: 'Emporter',
-                subtitle: 'Commande à emporter',
-                icon: Icons.shopping_bag_outlined,
-                onTap: () => _setOrderType(OrderType.emporter),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _modeCard({
-    required bool active,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    final border = active ? const Color(0xFFD43B3B) : Colors.white12;
-    final bg = active ? const Color(0xFF2A1416) : const Color(0xFF1B1D20);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: border, width: active ? 2 : 1),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: active ? const Color(0xFFD43B3B) : Colors.white10,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -651,19 +614,17 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
   }
 
   Widget _buildTableBadge() {
-    final label = _orderType == OrderType.emporter
-        ? 'À emporter'
-        : (_selectedTable == null ? 'Table: —' : 'Table: T${_selectedTable!.number}');
+    final label = _selectedTable == null ? 'Table: —' : 'Table: T${_selectedTable!.number}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: Colors.black12),
       ),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+        style: const TextStyle(color: Colors.black54, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -673,38 +634,37 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
       children: [
         Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(label, style: const TextStyle(color: Colors.black54, fontSize: 12)),
       ],
     );
   }
 
   Widget _buildTablePlan() {
-    const panelBg = Color(0xFF1B1D20);
-    const planWidth = 520.0;
-    const planHeight = 320.0;
+    const panelBg = Colors.white;
+    final sortedTables = [..._tables]..sort((a, b) => a.number.compareTo(b.number));
     return Container(
       height: 260,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: panelBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Colors.black12),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final sx = constraints.maxWidth / planWidth;
-          final sy = constraints.maxHeight / planHeight;
-          final scale = sx < sy ? sx : sy;
-          return Stack(
-            children: _tables.map((t) {
-              final left = t.x * scale;
-              final top = t.y * scale;
-              return Positioned(
-                left: left,
-                top: top,
-                child: _tableChip(t, scale),
-              );
-            }).toList(),
+          const minTile = 86.0;
+          const gap = 12.0;
+          final crossAxisCount = (constraints.maxWidth / (minTile + gap)).floor().clamp(2, 8);
+
+          return GridView.builder(
+            itemCount: sortedTables.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: gap,
+              mainAxisSpacing: gap,
+              childAspectRatio: 1,
+            ),
+            itemBuilder: (context, index) => _tableChip(sortedTables[index], 1),
           );
         },
       ),
@@ -717,9 +677,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
     return GestureDetector(
       onTap: () => _toggleTable(table),
       child: Container(
-        width: 70 * scale,
-        height: 70 * scale,
-        padding: const EdgeInsets.all(6),
+        width: 88 * scale,
+        height: 88 * scale,
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: color.withOpacity(isSelected ? 0.18 : 0.08),
           borderRadius: BorderRadius.circular(14),
@@ -733,7 +693,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   'T${table.number}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ),
               const SizedBox(height: 2),
@@ -753,7 +713,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
 
   Widget _buildCategories() {
     if (_categories.isEmpty) {
-      return const Text('Aucune catégorie', style: TextStyle(color: Colors.white54));
+      return const Text('Aucune catégorie', style: TextStyle(color: Colors.black54));
     }
     return GridView.builder(
       shrinkWrap: true,
@@ -772,9 +732,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
           onTap: () => setState(() => _activeCategory = c.name),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1B1D20),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white12),
+              border: Border.all(color: Colors.black12),
             ),
             child: Stack(
               children: [
@@ -782,9 +742,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   child: imageUrl.isEmpty
                       ? Container(
-                          color: Colors.white10,
+                          color: Colors.black.withOpacity(0.05),
                           child: const Center(
-                            child: Icon(Icons.category_outlined, color: Colors.white54, size: 40),
+                            child: Icon(Icons.category_outlined, color: Colors.black45, size: 40),
                           ),
                         )
                       : Image.network(
@@ -793,9 +753,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                           height: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
-                            color: Colors.white10,
+                            color: Colors.black.withOpacity(0.05),
                             child: const Center(
-                              child: Icon(Icons.broken_image_outlined, color: Colors.white54, size: 40),
+                              child: Icon(Icons.broken_image_outlined, color: Colors.black45, size: 40),
                             ),
                           ),
                         ),
@@ -808,8 +768,8 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Colors.black.withOpacity(0.6),
-                          Colors.transparent,
+                          Colors.white.withOpacity(0.92),
+                          Colors.white.withOpacity(0.0),
                         ],
                       ),
                     ),
@@ -826,19 +786,19 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                           c.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
+                          color: Colors.black.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           '${c.count}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          style: const TextStyle(color: Colors.black54, fontSize: 11),
                         ),
                       ),
                     ],
@@ -858,7 +818,7 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
       return Container(
         height: 180,
         alignment: Alignment.center,
-        child: const Text('Aucun produit', style: TextStyle(color: Colors.white54)),
+        child: const Text('Aucun produit', style: TextStyle(color: Colors.black54)),
       );
     }
     final columns = wide ? 3 : 2;
@@ -877,19 +837,8 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
   }
 
   Widget _buildCategoryOrProducts() {
-    if (_orderType == OrderType.surPlace && _selectedTable == null) {
-      return Container(
-        height: 160,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1B1D20),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: const Text('Sélectionnez une table pour continuer',
-            style: TextStyle(color: Colors.white54)),
-      );
-    }
+    // Guard: categories/products only make sense after selecting a table.
+    if (_selectedTable == null) return const SizedBox.shrink();
 
     if (_activeCategory == null) {
       return Column(
@@ -897,13 +846,12 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
         children: [
           Row(
             children: [
-              if (_orderType == OrderType.surPlace)
-                IconButton(
-                  onPressed: () => setState(() => _showTables = true),
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 18),
-                ),
+              IconButton(
+                onPressed: () => setState(() => _showTables = true),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black54, size: 18),
+              ),
               const Text('Catégories et produits',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
               if (_loadingTableOrder) ...[
                 const SizedBox(width: 8),
                 const SizedBox(
@@ -927,9 +875,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
           children: [
             IconButton(
               onPressed: () => setState(() => _activeCategory = null),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 18),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black54, size: 18),
             ),
-            Text(_activeCategory!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            Text(_activeCategory!, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
           ],
         ),
         const SizedBox(height: 10),
@@ -942,9 +890,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
     final qty = _order[product.id]?.quantity ?? 0;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Colors.black12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,8 +904,8 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                 child: product.imageUrl.isEmpty
                     ? Container(
                         height: 84,
-                        color: Colors.white10,
-                        child: const Center(child: Icon(Icons.image_outlined, color: Colors.white54)),
+                        color: Color(0xFFF6F7F9),
+                        child: const Center(child: Icon(Icons.image_outlined, color: Colors.black45)),
                       )
                     : Image.network(
                         product.imageUrl,
@@ -966,8 +914,8 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           height: 84,
-                          color: Colors.white10,
-                          child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.white54)),
+                          color: Colors.black.withOpacity(0.05),
+                          child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.black45)),
                         ),
                       ),
               ),
@@ -995,22 +943,43 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
                 Text(product.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 4),
                 Text('${product.price.toStringAsFixed(2)} MAD',
-                    style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                    style: const TextStyle(color: Colors.black54, fontSize: 11)),
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   height: 30,
-                  child: ElevatedButton(
-                    onPressed: () => _addProduct(product),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD43B3B),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                      padding: EdgeInsets.zero,
-                    ),
-                    child: const Text('+  Ajouter', style: TextStyle(fontWeight: FontWeight.w600)),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 42,
+                        height: 30,
+                        child: OutlinedButton(
+                          onPressed: qty > 0 ? () => _decItem(product) : null,
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            foregroundColor: const Color(0xFFD43B3B),
+                            side: const BorderSide(color: Color(0xFFD43B3B)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          ),
+                          child: const Icon(Icons.remove, size: 16),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _addProduct(product),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD43B3B),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: const Text('+  Ajouter', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1028,43 +997,41 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Colors.black12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Commande en cours', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          const Text('Commande en cours', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           Text(
-            _orderType == OrderType.surPlace
-                ? (_selectedTable == null ? 'Sur place - Aucune table' : 'Sur place - Table ${_selectedTable!.number}')
-                : 'À emporter',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            _selectedTable == null ? 'Sur place - Aucune table' : 'Sur place - Table ${_selectedTable!.number}',
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
           ),
           const SizedBox(height: 12),
           if (compact)
             SizedBox(
               height: 160,
               child: _order.isEmpty
-                  ? const Center(child: Text('Aucun article', style: TextStyle(color: Colors.white54)))
+                  ? const Center(child: Text('Aucun article', style: TextStyle(color: Colors.black54)))
                   : ListView(children: _order.values.map(_orderRow).toList()),
             )
           else
             Expanded(
               child: _order.isEmpty
-                  ? const Center(child: Text('Aucun article', style: TextStyle(color: Colors.white54)))
+                  ? const Center(child: Text('Aucun article', style: TextStyle(color: Colors.black54)))
                   : ListView(children: _order.values.map(_orderRow).toList()),
             ),
           const SizedBox(height: 10),
           TextField(
             controller: _noteCtrl,
             maxLines: 2,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.black87),
             decoration: InputDecoration(
               hintText: 'Note de la commande',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: const TextStyle(color: Colors.black45),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.05),
+              fillColor: const Color(0xFFF6F7F9),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
@@ -1072,9 +1039,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total', style: TextStyle(color: Colors.white70)),
+              const Text('Total', style: TextStyle(color: Colors.black54)),
               Text('${_total.toStringAsFixed(2)} MAD',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 10),
@@ -1101,9 +1068,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: const Color(0xFFF6F7F9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: Colors.black12),
       ),
       child: Row(
         children: [
@@ -1111,9 +1078,9 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.product.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                Text(item.product.name, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text('${item.product.price.toStringAsFixed(2)} MAD', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text('${item.product.price.toStringAsFixed(2)} MAD', style: const TextStyle(color: Colors.black54, fontSize: 12)),
               ],
             ),
           ),
@@ -1121,13 +1088,13 @@ class _ServeurHomeScreenState extends State<ServeurHomeScreen> {
             children: [
               IconButton(
                 onPressed: () => _decItem(item.product),
-                icon: const Icon(Icons.remove_circle_outline, color: Colors.white70),
+                icon: const Icon(Icons.remove_circle_outline, color: Colors.black54),
               ),
               Text(item.quantity.toString(),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
               IconButton(
                 onPressed: () => _incItem(item.product),
-                icon: const Icon(Icons.add_circle_outline, color: Colors.white70),
+                icon: const Icon(Icons.add_circle_outline, color: Colors.black54),
               ),
             ],
           ),
@@ -1216,4 +1183,4 @@ class OrderItem {
   }
 }
 
-enum OrderType { surPlace, emporter }
+// Serveur flow is table-only (no "emporter" mode).

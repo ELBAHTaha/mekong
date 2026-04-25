@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
@@ -14,24 +17,30 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
   final ApiService _api = ApiService();
 
   bool _showPlanView = true;
-  RestaurantTable? _draggedTable;
-  Offset? _dragStartPosition;
-  Offset? _tableStartPosition;
+  Timer? _refreshTimer;
+  static const Duration _refreshInterval = Duration(seconds: 5);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1113),
+      backgroundColor: const Color(0xFFF6F7F9),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back, color: Colors.black54),
+          onPressed: () {
+            final nav = Navigator.of(context);
+            if (nav.canPop()) {
+              nav.pop();
+            } else {
+              nav.pushReplacementNamed('/home');
+            }
+          },
         ),
         title: const Text(
           'Plan des Tables',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700),
         ),
         actions: [
           IconButton(
@@ -72,54 +81,68 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
   void initState() {
     super.initState();
     _loadTables();
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) {
+      // Keep tables updated "near real-time" by polling the backend.
+      _loadTables(silent: true);
+    });
   }
 
-  Future<void> _loadTables() async {
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadTables({bool silent = false}) async {
     try {
       final raw = await _api.fetchTables();
-      setState(() {
-        _tables = raw
-            .map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>))
-            .toList();
-      });
+      if (!mounted) return;
+      final next = raw
+          .map((e) => RestaurantTable.fromJson(e as Map<String, dynamic>))
+          .toList();
+      setState(() => _tables = next);
     } catch (e) {
-      // ignore: avoid_print
-      print('Failed to load tables: $e');
+      if (!silent) {
+        // ignore: avoid_print
+        print('Failed to load tables: $e');
+      }
     }
   }
 
-  Future<void> _saveTablePosition(RestaurantTable table) async {
-    try {
-      final id = int.tryParse(table.id) ?? 0;
-      if (id == 0) return;
-      final payload = {'x': table.x, 'y': table.y};
-      final res = await _api.updateTable(id, payload);
-      if (!mounted) return;
-      setState(() {
-        final idx = _tables.indexWhere((t) => t.id == table.id);
-        if (idx != -1) {
-          _tables[idx] = RestaurantTable.fromJson(res);
-        }
-      });
-    } catch (e) {
-      // ignore: avoid_print
-      print('Save position failed: $e');
+  /// Table widget size on plan (must match [_buildTableWidget]).
+  double _planTableWidth(RestaurantTable table) {
+    final size = table.capacity * 15 + 40;
+    return table.shape == TableShape.RECTANGLE ? size * 1.5 : size.toDouble();
+  }
+
+  double _planTableHeight(RestaurantTable table) {
+    final size = table.capacity * 15 + 40;
+    return table.shape == TableShape.RECTANGLE ? size * 0.75 : size.toDouble();
+  }
+
+  /// Minimum plan size so background + comptoir fit; grows to include every table.
+  Size _planContentSize() {
+    const double minW = 520;
+    const double minH = 360;
+    if (_tables.isEmpty) return const Size(minW, minH);
+    double maxR = minW;
+    double maxB = minH;
+    for (final t in _tables) {
+      final w = _planTableWidth(t);
+      final h = _planTableHeight(t);
+      maxR = math.max(maxR, t.x.toDouble() + w + 20);
+      maxB = math.max(maxB, t.y.toDouble() + h + 20);
     }
+    return Size(maxR, maxB);
   }
 
   Widget _buildLegend() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: Colors.black12),
       ),
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Wrap(
@@ -130,9 +153,6 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
           _buildLegendItem(Colors.green, 'Libre'),
           _buildLegendItem(Colors.red, 'Occupée'),
           _buildLegendItem(Colors.orange, 'Réservée'),
-          _buildLegendItem(Colors.blue, 'Carrée'),
-          _buildLegendItem(Colors.purple, 'Ronde'),
-          _buildLegendItem(Colors.cyan, 'Rectangle'),
         ],
       ),
     );
@@ -153,7 +173,7 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
         Text(
           text,
           style: const TextStyle(
-            color: Colors.white70,
+            color: Colors.black87,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -163,135 +183,73 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
   }
 
   Widget _buildPlanView() {
+    final content = _planContentSize();
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1D20),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.5),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
+        border: Border.all(color: Colors.black12),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          children: [
-            // Arrière-plan du restaurant
-            _buildRestaurantBackground(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: content.width,
+                height: content.height,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _buildRestaurantBackground(),
 
-            // Comptoir
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
-              child: Container(
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2D3748),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
-                ),
-                child: const Center(
-                  child: Text(
-                    'COMPTOIR',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
+                    Positioned(
+                      bottom: 20,
+                      left: 20,
+                      right: 20,
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F1F3),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.black12),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'COMPTOIR',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+
+                    ..._tables.map((table) {
+                      return Positioned(
+                        left: table.x.toDouble(),
+                        // Move tables well above the comptoir area for clarity.
+                        top: math.max(0, table.y.toDouble() - 140),
+                        child: GestureDetector(
+                          onTap: () => _showTableDetails(table),
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: _buildTableWidget(table),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
-            ),
-
-            // Tables
-            ..._tables.map((table) {
-              return Positioned(
-                left: table.x.toDouble(),
-                top: table.y.toDouble(),
-                child: GestureDetector(
-                  onTap: () => _showTableDetails(table),
-                  onPanStart: (details) {
-                    setState(() {
-                      _draggedTable = table;
-                      _dragStartPosition = details.globalPosition;
-                      _tableStartPosition =
-                          Offset(table.x.toDouble(), table.y.toDouble());
-                    });
-                  },
-                  onPanUpdate: (details) {
-                    if (_draggedTable != null && _dragStartPosition != null) {
-                      setState(() {
-                        final dx =
-                            details.globalPosition.dx - _dragStartPosition!.dx;
-                        final dy =
-                            details.globalPosition.dy - _dragStartPosition!.dy;
-
-                        final newX =
-                            (_tableStartPosition!.dx + dx).clamp(20, 450);
-                        final newY =
-                            (_tableStartPosition!.dy + dy).clamp(20, 320);
-
-                        _draggedTable = _draggedTable!.copyWith(
-                          x: newX.round(),
-                          y: newY.round(),
-                        );
-
-                        // Update in list
-                        final index = _tables
-                            .indexWhere((t) => t.id == _draggedTable!.id);
-                        if (index != -1) {
-                          _tables[index] = _draggedTable!;
-                        }
-                      });
-                    }
-                  },
-                  onPanEnd: (details) {
-                    final moved = _draggedTable;
-                    _draggedTable = null;
-                    _dragStartPosition = null;
-                    _tableStartPosition = null;
-                    if (moved != null) {
-                      _saveTablePosition(moved);
-                    }
-                  },
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.grab,
-                    child: _buildTableWidget(table),
-                  ),
-                ),
-              );
-            }).toList(),
-
-            // Instructions
-            Positioned(
-              bottom: 70,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    '🖱️ Glissez-déposez pour déplacer • 👆 Cliquez pour modifier',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -301,18 +259,9 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF2D3748),
-            Color(0xFF1B1D20),
-          ],
-        ),
-      ),
+      color: const Color(0xFFF6F7F9),
       child: CustomPaint(
-        painter: _GridPainter(),
+        painter: _GridPainter(light: true),
       ),
     );
   }
@@ -320,7 +269,6 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
   Widget _buildTableWidget(RestaurantTable table) {
     final color = _getTableColor(table.state);
     final size = table.capacity * 15 + 40;
-    final isDragged = _draggedTable?.id == table.id;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -328,7 +276,7 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
       height:
           table.shape == TableShape.RECTANGLE ? size * 0.75 : size.toDouble(),
       decoration: BoxDecoration(
-        color: color.withOpacity(isDragged ? 0.3 : 0.2),
+        color: Colors.white,
         shape: table.shape == TableShape.CIRCLE
             ? BoxShape.circle
             : BoxShape.rectangle,
@@ -336,14 +284,14 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
             ? BorderRadius.circular(table.shape == TableShape.SQUARE ? 12 : 16)
             : null,
         border: Border.all(
-          color: color,
-          width: isDragged ? 3 : 2,
+          color: color.withOpacity(0.9),
+          width: 1.5,
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: color.withOpacity(0.5),
-            blurRadius: isDragged ? 15 : 8,
-            spreadRadius: isDragged ? 3 : 1,
+            color: Color(0x14000000),
+            blurRadius: 10,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -353,27 +301,15 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  '${table.number}',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.5),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${table.capacity} pers.',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                Transform.translate(
+                  offset: const Offset(0, 6),
+                  child: Text(
+                    '${table.number}',
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -387,32 +323,18 @@ class _RestaurantTablesScreenState extends State<RestaurantTablesScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: color,
+                color: color.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: color.withOpacity(0.35)),
               ),
               child: Text(
                 _getStateLabel(table.state),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: color,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-          ),
-
-          // Icône de forme
-          Positioned(
-            top: 8,
-            left: 8,
-            child: Icon(
-              table.shape == TableShape.CIRCLE
-                  ? Icons.circle_outlined
-                  : table.shape == TableShape.SQUARE
-                      ? Icons.crop_square_outlined
-                      : Icons.rectangle_outlined,
-              color: Colors.white.withOpacity(0.7),
-              size: 16,
             ),
           ),
         ],
@@ -1136,10 +1058,15 @@ enum TableState { LIBRE, OCCUPEE, RESERVEE }
 enum TableShape { CIRCLE, SQUARE, RECTANGLE }
 
 class _GridPainter extends CustomPainter {
+  final bool light;
+  _GridPainter({this.light = false});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.05)
+      ..color = light
+          ? Colors.black.withOpacity(0.06)
+          : Colors.white.withOpacity(0.05)
       ..strokeWidth = 1;
 
     // Lignes verticales
